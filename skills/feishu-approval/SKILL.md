@@ -12,7 +12,7 @@ description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool (token,
 1. 将 **`feishu-approval/`** 整包放到 OpenClaw 技能目录，例如 **`~/.openclaw/skills/feishu-approval/`**（若你使用工作区技能，则为项目下 `skills/feishu-approval/`）。
 2. 包内须含 **`SKILL.md`** 与 **`embedded-docs/`**（字段级说明依赖后者）。
 3. **`SKILL.md` frontmatter**：每个键 **单行**（勿多行 `description`），避免解析失败。
-4. **二进制**：在仓库根执行 `cargo build -p feishu-approval-tool --release`，将 `target/release/feishu-approval-tool`（Windows 为 `.exe`）加入 **`PATH`**，或在自动化里写绝对路径调用。
+4. **安装 CLI**：在仓库根执行 **`cargo install --path crates/feishu-approval-tool`**（默认安装到 **`~/.cargo/bin`**，请把该目录加入 **`PATH`**）。可选 **`--locked`** 使用仓库 `Cargo.lock`。若已在 `crates/feishu-approval-tool` 目录下，可用 **`cargo install --path .`**。
 5. 执行命令时 **工作目录** 建议为含 **`.env`**（`FEISHU_APP_ID` 等）的目录，或事先导出环境变量。
 
 | 技能包内路径 | 用途 |
