@@ -15,7 +15,7 @@ description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool (token,
 | **`approval-code-map.md`**（技能根目录，**勿改名**） | 用户只说审批**中文名**、需要 **`approval_code`** 时 |
 | **`embedded-docs/INDEX.md` → 单页** | JSON body、`form` 控件、错误码、事件字段、未封装的接口形状 |
 
-**禁止**臆造子命令或路径；与实现不一致时以仓库 **`crates/feishu-approval-tool`** 及 **`feishu-approval-tool <子命令> --help`** 为准。
+**禁止**臆造子命令或路径；与实现不一致时以仓库 **`crates/feishu-approval-tool`** 及 **`feishu-approval-tool -h`** / **`feishu-approval-tool <子命令> --help`** 为准。
 
 ---
 
@@ -53,13 +53,15 @@ description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool (token,
 
 ## 5. 安装 CLI 与运行方式
 
-在仓库根目录：
+**若 `feishu-approval-tool` 不可用**（shell 提示命令不存在）：在**本仓库根目录**安装：
 
 ```bash
 cargo install --path crates/feishu-approval-tool
 ```
 
 （可选 **`--locked`**。二进制默认在 **`~/.cargo/bin`**，需加入 **`PATH`**。）
+
+安装或排查时可用 **`feishu-approval-tool -h`**（或 **`--help`**）确认 CLI 已就绪并查看子命令列表。
 
 执行时**工作目录**建议为含 **`.env`** 的目录；工具会加载 `.env`（**不覆盖**已有环境变量）。
 
@@ -71,7 +73,9 @@ cargo install --path crates/feishu-approval-tool
 |-------------------|------|
 | `--base` / `FEISHU_OPEN_BASE` | 开放平台根 URL，默认 `https://open.feishu.cn`（国际版常用 `https://open.larksuite.com`） |
 | `--approval-upload-base` / `FEISHU_APPROVAL_UPLOAD_BASE` | 审批附件上传域，默认 `https://www.feishu.cn` |
-| `--token` / `FEISHU_TENANT_ACCESS_TOKEN` | Bearer；不设则用 `FEISHU_APP_ID` + `FEISHU_APP_SECRET` 换 token |
+| `--token` / `FEISHU_TENANT_ACCESS_TOKEN` | Bearer。**`FEISHU_TENANT_ACCESS_TOKEN`** 可直接从环境变量提供；若不设，CLI 会用下方 **`FEISHU_APP_ID`** + **`FEISHU_APP_SECRET`** 自动换票。也可先执行 **`feishu-approval-tool token`**（需已配置 app 凭证），将 stdout 中的 token 导出为 **`FEISHU_TENANT_ACCESS_TOKEN`** 再调其他子命令。 |
+| （无 CLI 选项）/ `FEISHU_APP_ID` | 自建应用 App ID，从**环境变量**或 `.env` 读取（与开放平台应用凭证一致）。 |
+| （无 CLI 选项）/ `FEISHU_APP_SECRET` | 自建应用密钥，从**环境变量**或 `.env` 读取；勿泄露、勿提交仓库。 |
 | `--timeout-secs` | HTTP 超时秒数，默认 `60` |
 | `--raw` | JSON 不美化，便于管道 |
 
@@ -83,7 +87,7 @@ cargo install --path crates/feishu-approval-tool
 
 ### 7.1 `token`
 
-打印 **`tenant_access_token`**（stdout）。
+打印 **`tenant_access_token`**（stdout）。在已配置 **`FEISHU_APP_ID`**、**`FEISHU_APP_SECRET`**（环境变量或 `.env`）时，可将输出设为 **`FEISHU_TENANT_ACCESS_TOKEN`** 供后续命令使用。
 
 ### 7.2 `approval`
 
