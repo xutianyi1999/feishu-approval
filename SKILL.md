@@ -21,7 +21,9 @@ description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool (token,
 
 ## 2. 技能包结构
 
-将 **`feishu-approval/`** 整目录放到 OpenClaw 技能路径（如 **`~/.openclaw/skills/feishu-approval/`** 或项目 **`skills/feishu-approval/`**）。
+**本仓库**：`SKILL.md`、`approval-code-map.md`、`embedded-docs/` 在**仓库根目录**（与 `crates/` 并列）。
+
+**装入 OpenClaw**：把上述三项放进**同一目录**（建议目录名 `feishu-approval`），再整目录放到技能路径，例如 **`~/.openclaw/skills/feishu-approval/`** 或项目 **`skills/feishu-approval/`**。
 
 | 路径 | 作用 |
 |------|------|
