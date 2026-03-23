@@ -1,2 +1,5 @@
 /.env
 /target
+
+# Tenant-specific approval name → approval_code (see approval-code-map.md)
+/approval-code-map.local.md

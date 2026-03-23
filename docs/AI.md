@@ -4,7 +4,7 @@
 
 ### 必须 / 禁止（先扫一眼）
 
-- **禁止**编造或猜测 **`approval_code`**；用户只给中文名时 **Read `approval-code-map.md`**。
+- **禁止**编造或猜测 **`approval_code`**；用户只给中文名时 **先 Read `approval-code-map.local.md`（若存在），否则 Read `approval-code-map.md`**。
 - **必须**用 **`approval dump` / `get`** 里的 **`form`** / **`node_list`** 对照控件 **`id`**、**`type`**、选项 **value**；不要凭印象填 `widgets.json`。
 - **勿通读** **`embedded-docs/INDEX.md`**：只打开与当前接口相关的**一行**链到单页。
 - 怀疑环境或 token：先跑 **`feishu-approval-tool util doctor`**（不打印密钥；会尝试换票）。
@@ -12,7 +12,7 @@
 ### 第一次用（少在文档间跳转）
 
 1. **主线只读本文件**（`docs/AI.md`）；**`SKILL.md`** 仅在安装 CLI、查环境变量/技能包目录时打开。
-2. **`approval-code-map.md`** 仅当用户给了审批**中文名**、未给 **`approval_code`** 时打开。
+2. **`approval-code-map.local.md`**（若存在）或 **`approval-code-map.md`**：仅当用户给了审批**中文名**、未给 **`approval_code`** 时打开查表（local 优先，见根目录 **`approval-code-map.md`** 说明）。
 3. **`embedded-docs/`** 仅当需要 HTTP 字段细则时，从 **`embedded-docs/INDEX.md` 选一行**进单页，勿通读 INDEX。
 4. 空白 **`widgets.json` 起点**：**`util scaffold-widgets --json-file approval-data.json`**（每个**顶层**控件一行，`value` 先为 `null` 再按 §7 填写）；**`fieldList` 内子列**须自行按定义嵌进二维 **`value`**，脚手架不展开子控件。仓库**未提供**全交互式 `instance create --wizard`（问答向导）；人机协作可用脚手架 + §7，或让终端用户在本机补全 JSON。
 
@@ -31,7 +31,7 @@
 | 场景 | 打开 |
 |------|------|
 | **任何操作** | 本文件 |
-| 用户只说审批中文名、未给 code | **`approval-code-map.md`** |
+| 用户只说审批中文名、未给 code | **`approval-code-map.local.md`**（优先）或 **`approval-code-map.md`** |
 | 控件 value、fieldList、body | **`approval dump -c <code> --data-only -o approval-data.json`**（或 `dump` / `get`）看 `form` / `node_list`；复杂类型再点开 **`embedded-docs/.../approval-instance-form-control-parameters.md`** |
 | 仍缺 HTTP 形状 | **`embedded-docs/INDEX.md`** 中**一行**（勿通读 INDEX） |
 | flags / `after_long_help` | **`feishu-approval-tool -h`**、**`<子命令> --help`** |
@@ -76,7 +76,7 @@
 | `form.txt` | 由 `widgets.json` 经 `util form-string` 生成（见 §4 方式 B） |
 | `extra.json` | 与 body 浅合并的对象（如 `node_approver_open_id_list`） |
 
-示例控件数组：**`docs/examples/form-widgets.sample.json`**。脱敏的 dump **`data`** 形状示例（勿用于真实租户）：**`docs/examples/approval-data.sample.json`**。**费用报销类**常见 **fieldList + date + formula** 形状（**`id`/`type` 须换成本租户 dump**，见 **`approval-code-map.md`** 说明）：**`docs/examples/expense-reimbursement-widgets.sample.json`**。由 `widgets.json` 生成 `form.txt`：`util form-string --json-file widgets.json > form.txt`（或 **`--json-file -`** 从 stdin 读）。
+示例控件数组：**`docs/examples/form-widgets.sample.json`**。脱敏的 dump **`data`** 形状示例（勿用于真实租户）：**`docs/examples/approval-data.sample.json`**。**费用报销类**常见 **fieldList + date + formula** 形状（**`id`/`type` 须换成本租户 dump**，见根目录 **`approval-code-map.md`** 中「费用报销」段）：**`docs/examples/expense-reimbursement-widgets.sample.json`**。由 `widgets.json` 生成 `form.txt`：`util form-string --json-file widgets.json > form.txt`（或 **`--json-file -`** 从 stdin 读）。
 
 ### 对照定义与校验（离线）
 
