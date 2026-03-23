@@ -48,7 +48,8 @@
 | `approval get` | 拉审批定义（终端输出；受 `--raw` 影响） |
 | `approval dump` | 同上 GET，**总是美化 JSON**；**`-o path`** 落盘；**`--data-only`** 只写响应里的 **`data`**（更小，适合 Read） |
 | `util form-string` | **不调飞书**：读入控件 **JSON 数组**（文件或 `-`），打印 **`form` 单行字符串** → 配合 `instance create --form-file` |
-| `util validate-widgets` | **不调飞书**：检查控件数组每项及 **`fieldList` / `fieldListMobile` 内层**单元是否含 **`id` / `type` / `value`**（`fieldList` 的 **`value` 为 `null`** 时跳过内层检查）；**启发式**：非空 **`date`** → 须像 **RFC3339**（含 **`Z`** 或 **`±HH:MM`**）；非空 **`amount` / `formula`** → 须为 JSON 数字或可解析的**非空**数字字符串（飞书仍可能拒个别业务值） |
+| `util validate-widgets` | **不调飞书**：检查控件数组每项及 **`fieldList` / `fieldListMobile` 内层**；**`image` / `attachment` / `attachmentV2`** 的 **`value` 须为 JSON 数组**（**不可 `null`**，空附件用 **`[]`**，上传后用 **`[{"code":"…"}]`** 一类形状，以定义为准）；**启发式**：非空 **`date`** → RFC3339 形态；非空 **`amount` / `formula`** → 数字或可解析数字字符串。可加 **`--fix`**：把 **`null`** 安全改为 **`[]`**（文件类、明细）或 **`""`**（`input`/`textarea` 等）后**校验并打印**修正后的 JSON |
+| `util explain` | **不调飞书**：**`--msg "…"`** 粘贴飞书返回的 **`msg` 片段**，打印与 CLI 在 **`code≠0`** 时类似的**排错说明**（附件数组、`fieldList` 二维、日期 RFC3339、`index=` 误导等） |
 | `util extract-widgets` | **不调飞书**：读 **`approval dump --data-only`**（或带 **`data`** 的完整 GET JSON），打印 **控件骨架** 美化 JSON |
 | `util scaffold-widgets` | **不调飞书**：读同上 dump JSON，打印顶层 **`widgets.json` 模板**；普通控件 **`value`: `null`**；**`fieldList` / `fieldListMobile`** 从定义 **`children`** 生成 **`[[ { id, type, value }, … ]]`** 的一行占位（子列含 **`type`**，**`value`** 多为 `null`；嵌套明细会递归占位） |
 | `util doctor` | 打印凭证是否配置（**不打印密钥**），并尝试 **`resolve_tenant_token`**（会访问换票接口） |
@@ -193,7 +194,7 @@ CLI 会把你传的 **`--pending-only` / `--task-status` / `--search-user-id`** 
 | **明细 / `fieldList` 类**：报错指向 value 结构、或期望「数组的数组」 | **`value` 为二维数组**：外层 = 行，内层 = 该行内各**子控件对象**；**勿**写成单层扁平对象。**每个子对象必须与根控件一样带齐 `id`、`type`、`value`**（仅写 `id`+`value` 漏 `type` 时，飞书常报 **「表单控件类型为空」「index=0」** 等——**易误判为第一个根控件有问题**，实为 **明细列内**缺 `type`）。先 **`util validate-widgets`** 或依赖 **`instance create` 内置检查** 定位到 **`widgets[i].value[r][c]`**；对照 **`approval dump`** 的 **`form`** 与 **`embedded-docs/.../approval-instance-form-control-parameters.md`**（fieldList） |
 | **日期类**：格式无效、类型不符 | **`value` 为 RFC3339 字符串**（例：`2025-03-23T10:00:00+08:00`）；**勿**用 Unix **时间戳数字**，也**勿**只写 `YYYY-MM-DD`。对照同上 **`form`** 与控件参数单页 |
 | **formula**：空值、不合法 | 创建实例时 API **常要求 `value` 非空**（可与金额/计算结果一致），**勿**因「后台自动算」而省略 |
-| 飞书响应 **`code` ≠ 0**（如「控件值不合法或者为空」） | 读 stderr 全文（含 CLI 附带的 **§7 提示**）；用 **`util extract-widgets`** 按 **id** 查 **type**，再对照明细/日期/formula 等规则改 **`value`** |
+| 飞书响应 **`code` ≠ 0**（如「控件值不合法或者为空」「**控件值不是数组**」「**attachmentV2**」） | 读 stderr 全文（含 **`[feishu-approval-tool]`** 段落）；可复制 **`msg`** 运行 **`util explain --msg "…"`**；对照 **`util validate-widgets`**（必要时 **`--fix`**）与 **`util extract-widgets`** |
 | 其他控件 value 业务错误 | **`approval get -c <code>`**（或 **`dump --data-only`**）对照 **`form`** 与 **`embedded-docs`** 对应 **type** 单页 |
 | 仍不理解请求体字段 | **`embedded-docs/INDEX.md`** 打开**一行**对应该 API 的单页 |
 

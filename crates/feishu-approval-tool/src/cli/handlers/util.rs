@@ -1,11 +1,11 @@
 use crate::cli::json_util::{
-    extract_widget_skeletons_value, form_string_from_widgets_json_path, read_json_path_or_stdin,
-    scaffold_root_widgets_from_approval_data, validate_widgets_json_value,
+    apply_safe_widget_value_defaults, extract_widget_skeletons_value, form_string_from_widgets_json_path,
+    read_json_path_or_stdin, scaffold_root_widgets_from_approval_data, validate_widgets_json_value,
 };
 use crate::cli::{Cli, UtilAction};
 use anyhow::{Context, Result};
+use feishu_approval_tool::{explain_feishu_widget_msg, resolve_tenant_token};
 use std::fs;
-use feishu_approval_tool::resolve_tenant_token;
 use std::env;
 
 pub fn dispatch(cli: &Cli, action: &UtilAction) -> Result<()> {
@@ -14,11 +14,22 @@ pub fn dispatch(cli: &Cli, action: &UtilAction) -> Result<()> {
             let s = form_string_from_widgets_json_path(json_file)?;
             println!("{s}");
         }
-        UtilAction::ValidateWidgets { json_file } => {
-            let v = read_json_path_or_stdin(json_file)?;
+        UtilAction::ValidateWidgets { json_file, fix } => {
+            let mut v = read_json_path_or_stdin(json_file)?;
+            if *fix {
+                apply_safe_widget_value_defaults(&mut v)?;
+            }
             validate_widgets_json_value(&v)?;
-            let n = v.as_array().map(|a| a.len()).unwrap_or(0);
-            println!("OK: {n} widget(s) (offline checks passed)");
+            if *fix {
+                let pretty = serde_json::to_string_pretty(&v)?;
+                println!("{pretty}");
+            } else {
+                let n = v.as_array().map(|a| a.len()).unwrap_or(0);
+                println!("OK: {n} widget(s) (offline checks passed)");
+            }
+        }
+        UtilAction::Explain { msg } => {
+            println!("{}", explain_feishu_widget_msg(msg));
         }
         UtilAction::ExtractWidgets { json_file } => {
             let root = read_json_path_or_stdin(json_file)?;

@@ -81,7 +81,7 @@ pub enum Command {
         #[command(subcommand)]
         action: FileAction,
     },
-    /// Local helpers: `form-string` / `validate-widgets` / `extract-widgets` / `scaffold-widgets` / `init` offline; `doctor` checks env and may exchange token
+    /// Local helpers: `form-string` / `validate-widgets` / `explain` / `extract-widgets` / `scaffold-widgets` / `init` offline; `doctor` checks env and may exchange token
     Util {
         #[command(subcommand)]
         action: UtilAction,
@@ -96,10 +96,19 @@ pub enum UtilAction {
         #[arg(long)]
         json_file: PathBuf,
     },
-    /// Offline: check widget JSON array (`id`/`type`/`value`; `fieldList` rows recurse); heuristics: `date` → RFC3339-like string; `amount`/`formula` → number or numeric string; does not call Feishu
+    /// Offline: check widget JSON array (`id`/`type`/`value`; `fieldList` rows recurse); heuristics: `date` → RFC3339-like string; `amount`/`formula` → number or numeric string; file widgets → JSON array; `--fix` applies safe defaults then prints fixed JSON
     ValidateWidgets {
         #[arg(long)]
         json_file: PathBuf,
+        /// Set `null` `value` on file / fieldList / some text widgets to safe defaults, validate, print pretty JSON to stdout
+        #[arg(long)]
+        fix: bool,
+    },
+    /// Offline: print guidance for a Feishu API `msg` substring (e.g. paste error text from `msg` field)
+    Explain {
+        /// Snippet to match (quote if it contains spaces)
+        #[arg(long)]
+        msg: String,
     },
     /// Offline: read `approval dump --data-only` (or full response); print compact widget skeleton JSON (`id`, `type`, `name`, `options`, `children`)
     ExtractWidgets {

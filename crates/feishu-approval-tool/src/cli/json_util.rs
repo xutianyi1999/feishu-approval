@@ -83,6 +83,55 @@ pub fn validate_widgets_json_value(v: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Rewrite common **`null`** placeholders so offline validation matches typical Feishu expectations:
+/// **`image` / `attachment` / `attachmentV2`** and **`fieldList` / `fieldListMobile`** → **`[]`**;
+/// **`input` / `textarea`** (and `text` / `inputV2` / `textareaV2`) → **`""`**. Recurses into **`fieldList`** rows.
+pub fn apply_safe_widget_value_defaults(v: &mut Value) -> Result<()> {
+    let arr = v
+        .as_array_mut()
+        .ok_or_else(|| anyhow::anyhow!("expected a JSON array [...] of widgets"))?;
+    for item in arr.iter_mut() {
+        fix_one_widget_value_defaults(item)?;
+    }
+    Ok(())
+}
+
+fn fix_one_widget_value_defaults(item: &mut Value) -> Result<()> {
+    let Some(obj) = item.as_object_mut() else {
+        return Ok(());
+    };
+    let t = obj
+        .get("type")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    if let Some(val) = obj.get_mut("value") {
+        if val.is_null() {
+            match t.as_str() {
+                "image" | "attachment" | "attachmentV2" | "fieldList" | "fieldListMobile" => {
+                    *val = json!([]);
+                }
+                "input" | "textarea" | "text" | "inputV2" | "textareaV2" => {
+                    *val = Value::String(String::new());
+                }
+                _ => {}
+            }
+        }
+    }
+    if t == "fieldList" || t == "fieldListMobile" {
+        if let Some(Value::Array(rows)) = obj.get_mut("value") {
+            for row in rows.iter_mut() {
+                if let Value::Array(cells) = row {
+                    for cell in cells.iter_mut() {
+                        fix_one_widget_value_defaults(cell)?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_one_widget_value(item: &Value, path: &str) -> Result<()> {
     let obj = item
         .as_object()
@@ -125,6 +174,28 @@ fn rfc3339_like_regex() -> &'static Regex {
 }
 
 fn validate_widget_value_semantics(path: &str, widget_type: &str, value: Option<&Value>) -> Result<()> {
+    match widget_type {
+        "image" | "attachment" | "attachmentV2" => {
+            let Some(v) = value else {
+                bail!(
+                    "{path}: type {widget_type:?} needs a \"value\" key; use a JSON array, e.g. [] or [{{\"code\":\"…\"}}] after file upload"
+                );
+            };
+            if v.is_null() {
+                bail!(
+                    "{path}: type {widget_type:?} cannot use null for \"value\"; use [] or [{{\"code\":\"…\"}}]. Try: util validate-widgets --fix --json-file …"
+                );
+            }
+            if !v.is_array() {
+                bail!(
+                    "{path}: type {widget_type:?} requires \"value\" to be a JSON array, got {v}. Examples: [] ; [{{\"code\":\"FILE_CODE\"}}]"
+                );
+            }
+            return Ok(());
+        }
+        _ => {}
+    }
+
     let Some(v) = value else {
         return Ok(());
     };
@@ -577,6 +648,21 @@ mod tests {
         validate_widgets_json_value(&ok).unwrap();
         let bad = json!([{"id": "a", "type": "amount", "value": "x"}]);
         assert!(validate_widgets_json_value(&bad).unwrap_err().to_string().contains("numeric"));
+    }
+
+    #[test]
+    fn validate_widgets_attachment_requires_array_not_null() {
+        let bad = json!([{"id": "f", "type": "attachmentV2", "value": null}]);
+        let s = validate_widgets_json_value(&bad).unwrap_err().to_string();
+        assert!(s.contains("null") || s.contains("array"), "{s}");
+    }
+
+    #[test]
+    fn apply_safe_defaults_fixes_attachment_null() {
+        let mut v = json!([{"id": "f", "type": "attachmentV2", "value": null}]);
+        apply_safe_widget_value_defaults(&mut v).unwrap();
+        validate_widgets_json_value(&v).unwrap();
+        assert_eq!(v[0]["value"], json!([]));
     }
 
     #[test]

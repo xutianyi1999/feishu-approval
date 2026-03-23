@@ -1,6 +1,6 @@
 ---
 name: feishu-approval
-description: "AI-first: OpenClaw/agents drive feishu-approval-tool (not a casual human CLI). No approval-code-map.local.md + user names approval only → must ask user for approval_code then write map (util init + table row); docs/AI.md §8; §6.1 progressive debug + local templates/; §7 fieldList inner type (misleading 类型为空/index=0), date RFC3339 + amount/formula numeric heuristics; validate-widgets + instance create same checks; scaffold-widgets fieldList row from children; util extract/form-string/doctor/init; task reject batch; task search filters; instance --wizard|--template expense; Feishu code≠0 → stderr hints. Triggers: 飞书审批, Lark approval, approval_code, instance_code, 抄送, 加签, 订阅."
+description: "AI-first: OpenClaw/agents drive feishu-approval-tool (not a casual human CLI). No approval-code-map.local.md + user names approval only → must ask user for approval_code then write map (util init + table row); docs/AI.md §8; §6.1 progressive debug + local templates/; §7 fieldList/attachmentV2 array/null fixes; util explain --msg (paste Feishu msg); validate-widgets --fix; validate-widgets + instance create same checks; scaffold-widgets fieldList row from children; util extract/form-string/doctor/init; task reject batch; task search filters; instance --wizard|--template expense; Feishu code≠0 → stderr [feishu-approval-tool] block. Triggers: 飞书审批, Lark approval, approval_code, instance_code, 抄送, 加签, 订阅."
 ---
 
 # 飞书审批技能（`feishu-approval-tool`）

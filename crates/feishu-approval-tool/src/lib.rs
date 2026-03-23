@@ -262,21 +262,68 @@ impl OpenApiClient {
     }
 }
 
-/// Extra guidance when Feishu returns a vague `msg` about form / widgets (Open API `code` != 0).
-fn augment_feishu_open_api_error(msg: &str) -> String {
-    let mut out = String::from(
-        "\n\n---\n[feishu-approval-tool] If this call sent `form` / widgets: see repo `docs/AI.md` §7 and `embedded-docs/.../approval-instance-form-control-parameters.md`.",
+/// Offline explanation for a Feishu Open API `msg` about forms/widgets. Used by **`util explain`**
+/// and appended after JSON API errors when `code != 0`.
+pub fn explain_feishu_widget_msg(msg: &str) -> String {
+    let mut out = String::new();
+    out.push_str(
+        " If this call involved `form` / widgets: **`docs/AI.md` §7** and (for HTTP field shapes) one page under **`embedded-docs/.../approval-instance-form-control-parameters.md`**.",
     );
+
+    let lower = msg.to_lowercase();
+    if msg.contains("不是数组") || lower.contains("not an array") {
+        out.push_str(
+            "\n\n**Expected a JSON array** for that widget `value`, but the payload was another JSON type.",
+        );
+        if msg.contains("attachmentV2")
+            || msg.contains("attachment")
+            || msg.contains("image")
+            || lower.contains("attachmentv2")
+        {
+            out.push_str(
+                "\n- **image / attachment / attachmentV2**: `value` must be a JSON array. Empty: `[]`. After **`feishu-approval-tool file upload`**, use e.g. `[{{\"code\":\"FILE_CODE_FROM_UPLOAD\"}}]` (exact shape must match your definition; see §7).",
+            );
+        }
+        if msg.contains("fieldList") || msg.contains("明细") {
+            out.push_str(
+                "\n- **fieldList**: `value` must be **two-dimensional**: `[ [ {{\"id\",…,\"type\",…,\"value\"}}, … ], … ]` (rows × column cells).",
+            );
+        }
+    }
+
+    if (msg.contains("日期") || msg.contains("时间")) && (msg.contains("格式") || msg.contains("无效") || lower.contains("invalid")) {
+        out.push_str(
+            "\n\n**Date/time**: for `type: \"date\"`, use an **RFC3339 string with `Z` or `±HH:MM`**, e.g. **`2026-03-22T09:00:00+08:00`** (not `YYYY-MM-DD` alone, not a Unix timestamp number).",
+        );
+    }
+
     if feishu_msg_sounds_like_form_widget_issue(msg) {
         out.push_str(
-            " Typical fixes: `date` → RFC3339 string (e.g. 2026-03-22T00:00:00+08:00), not Unix timestamp or bare YYYY-MM-DD; `fieldList` → 2D JSON array (rows × column widgets), and **each inner cell** needs **`id` + `type` + `value`** (omitting inner `type` often yields a misleading 「控件类型为空」「index=0」— not necessarily the first root widget). Run **`util validate-widgets`** before `instance create` for paths like `widgets[i].value[row][col]`. `formula` → `value` often must be non-empty at create. Match each widget `type` from `approval dump --data-only` + `util extract-widgets`.",
+            "\n\n**Common fixes**:\n- **`date`** → RFC3339 string as above.\n- **`fieldList`** → 2D array; **each inner cell** needs **`id` + `type` + `value`** (a missing inner `type` often shows as 「控件类型为空」「index=0」 and does **not** always mean the first root widget).\n- **`formula`** → non-empty string `value` is often required at create.\n- Run **`feishu-approval-tool util validate-widgets --json-file widgets.json`** (paths like `widgets[i].value[r][c]`). Add **`--fix`** to apply safe defaults for `null` on file widgets / `fieldList` / some text types.\n- Match widget **`type`** from **`approval dump --data-only`** + **`util extract-widgets`**.",
         );
     } else if msg.contains("formula") || msg.contains("公式") {
         out.push_str(
-            " If a `formula` widget is involved: the API often requires a non-empty string `value` (e.g. same as a related amount); an empty `value` commonly surfaces as a generic invalid-widget error.",
+            "\n\n**formula widget**: the API often requires a **non-empty string** `value` (e.g. same as a related amount); an empty `value` often surfaces as a generic widget error.",
         );
     }
+
+    if msg.contains("index=") || msg.contains("index =") {
+        out.push_str(
+            "\n\n**About `index` in the message**: it may refer to a **flattened** widget index, not “the first control you see”. If root widgets look fine, inspect **`fieldList` inner cells** (missing `type`, wrong `value` shape).",
+        );
+    }
+
+    out.push_str(
+        "\n\n**Command**: paste the same text with **`feishu-approval-tool util explain --msg \"…\"`** to print this style of guide offline.",
+    );
     out
+}
+
+fn augment_feishu_open_api_error(msg: &str) -> String {
+    format!(
+        "\n\n---\n[feishu-approval-tool]{}",
+        explain_feishu_widget_msg(msg)
+    )
 }
 
 fn feishu_msg_sounds_like_form_widget_issue(msg: &str) -> bool {
@@ -285,6 +332,8 @@ fn feishu_msg_sounds_like_form_widget_issue(msg: &str) -> bool {
         || msg.contains("表单")
         || msg.contains("不合法")
         || msg.contains("为空")
+        || msg.contains("不是数组")
+        || lower.contains("not an array")
         || lower.contains("param is invalid")
 }
 
@@ -351,6 +400,23 @@ mod tests {
         let s = super::augment_feishu_open_api_error("表单控件类型为空。index= 0");
         assert!(s.contains("fieldList"), "{s}");
         assert!(s.contains("inner"), "{s}");
+    }
+
+    #[test]
+    fn explain_msg_attachmentv2_not_array() {
+        let s = super::explain_feishu_widget_msg(
+            "控件值不是数组。index= 4, widget type= attachmentV2.",
+        );
+        assert!(s.contains("attachmentV2") || s.contains("attachment"), "{s}");
+        assert!(s.contains("[]"), "{s}");
+        assert!(s.contains("validate-widgets"), "{s}");
+    }
+
+    #[test]
+    fn augment_keeps_heading_for_explain_style() {
+        let s = super::augment_feishu_open_api_error("控件值不合法或者为空");
+        assert!(s.contains("---"), "{s}");
+        assert!(s.contains("docs/AI.md"), "{s}");
     }
 
     #[test]
