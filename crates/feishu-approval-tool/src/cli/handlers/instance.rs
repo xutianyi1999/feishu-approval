@@ -2,6 +2,7 @@ use crate::cli::exec::exec;
 use crate::cli::json_util::{
     form_api_string_from_array_value, merge_object, parse_json_object_from_str, read_json_path_or_stdin,
     validate_instance_create_extra_patch, validate_widgets_against_approval_data,
+    validate_widgets_json_value,
 };
 use super::{post_json_from_file, push_opt_query, query_vec_refs, resolve_instance_create_form};
 use crate::cli::{Cli, InstanceAction, InstanceFormTemplate};
@@ -61,11 +62,14 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             } else {
                 resolve_instance_create_form(form, form_file, widgets_json_file)?
             };
+            let user_widgets: Value = serde_json::from_str(&form_str).context(
+                "resolved `form` must be a JSON array (use --widgets-json-file or a form that serializes to a widget array)",
+            )?;
+            validate_widgets_json_value(&user_widgets).context(
+                "widget shape check failed (fieldList rows need 2D arrays; each cell needs id+type+value — see docs/AI.md §7)",
+            )?;
             if let Some(p) = validate_against_json {
                 let approval_root = read_json_path_or_stdin(p)?;
-                let user_widgets: Value = serde_json::from_str(&form_str).context(
-                    "resolved `form` must be a JSON array for --validate-against-json (use --widgets-json-file or form that serializes to a widget array)",
-                )?;
                 validate_widgets_against_approval_data(&user_widgets, &approval_root)?;
             }
             let (open_id, user_id) = if *use_wizard {

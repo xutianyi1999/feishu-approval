@@ -96,7 +96,7 @@ pub enum UtilAction {
         #[arg(long)]
         json_file: PathBuf,
     },
-    /// Offline: check widget JSON array shape (`id`, `type`, `value` per item); does not call Feishu
+    /// Offline: check widget JSON array (`id`/`type`/`value`; `fieldList` rows recurse); heuristics: `date` → RFC3339-like string; `amount`/`formula` → number or numeric string; does not call Feishu
     ValidateWidgets {
         #[arg(long)]
         json_file: PathBuf,
@@ -106,7 +106,7 @@ pub enum UtilAction {
         #[arg(long)]
         json_file: PathBuf,
     },
-    /// Offline: read approval dump JSON; print top-level `widgets.json` template (`id`, `type`, `value`: null) — replace `value` per docs/AI.md §7
+    /// Offline: read approval dump JSON; print `widgets.json` template (`fieldList` gets one row from definition `children`, each column `id`+`type`+`value`)
     ScaffoldWidgets {
         #[arg(long)]
         json_file: PathBuf,

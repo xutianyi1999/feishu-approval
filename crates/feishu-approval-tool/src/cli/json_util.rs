@@ -1,9 +1,11 @@
 use anyhow::{Context, Result, bail};
+use regex::Regex;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Read};
 use std::path::Path;
+use std::sync::OnceLock;
 
 pub fn read_json_file(path: &Path) -> Result<Value> {
     let s = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
@@ -62,36 +64,127 @@ pub fn form_string_from_widgets_json_path(path: &Path) -> Result<String> {
     form_api_string_from_array_value(&v)
 }
 
-/// Offline checks for the JSON array used with `--widgets-json-file` / `util form-string`.
+/// Offline checks for the JSON array used with `--widgets-json-file` / `util form-string` / `instance create`.
 /// Ensures each element is an object with non-empty string `id` and `type`, and a present `value` key.
+/// For **`type` = `fieldList`**, `value` must be a JSON array of rows; each row is an array of column
+/// widgets, each of which must also have **`id` + `type` + `value`** (Feishu often returns a vague
+/// 「控件类型为空」「index=0」when an inner cell omits `type`).
+///
+/// Extra heuristics (best-effort, Feishu may still reject edge cases): **`date`** → `value` must look
+/// like **RFC3339 with offset or `Z`** if non-null; **`amount`** / **`formula`** → non-null `value`
+/// must be a JSON number or a **non-empty** numeric string.
 pub fn validate_widgets_json_value(v: &Value) -> Result<()> {
     let arr = v
         .as_array()
         .ok_or_else(|| anyhow::anyhow!("expected a JSON array [...] of widgets"))?;
     for (i, item) in arr.iter().enumerate() {
-        let obj = item
-            .as_object()
-            .ok_or_else(|| anyhow::anyhow!("widgets[{i}]: expected object"))?;
-        let id = obj
-            .get("id")
-            .ok_or_else(|| anyhow::anyhow!("widgets[{i}]: missing \"id\""))?;
-        let id_s = id
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("widgets[{i}]: \"id\" must be a string"))?;
-        if id_s.is_empty() {
-            bail!("widgets[{i}]: \"id\" must not be empty");
+        validate_one_widget_value(item, &format!("widgets[{i}]"))?;
+    }
+    Ok(())
+}
+
+fn validate_one_widget_value(item: &Value, path: &str) -> Result<()> {
+    let obj = item
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("{path}: expected object"))?;
+    let id = obj
+        .get("id")
+        .ok_or_else(|| anyhow::anyhow!("{path}: missing \"id\""))?;
+    let id_s = id
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("{path}: \"id\" must be a string"))?;
+    if id_s.is_empty() {
+        bail!("{path}: \"id\" must not be empty");
+    }
+    let t = obj
+        .get("type")
+        .ok_or_else(|| anyhow::anyhow!("{path}: missing \"type\""))?;
+    let t_s = t
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("{path}: \"type\" must be a string"))?;
+    if t_s.is_empty() {
+        bail!("{path}: \"type\" must not be empty");
+    }
+    if !obj.contains_key("value") {
+        bail!("{path}: missing \"value\" key (use null only if the widget type allows it)");
+    }
+    if t_s == "fieldList" || t_s == "fieldListMobile" {
+        validate_fieldlist_rows(obj.get("value"), path)?;
+    } else {
+        validate_widget_value_semantics(path, t_s, obj.get("value"))?;
+    }
+    Ok(())
+}
+
+fn rfc3339_like_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$")
+            .expect("rfc3339-like regex")
+    })
+}
+
+fn validate_widget_value_semantics(path: &str, widget_type: &str, value: Option<&Value>) -> Result<()> {
+    let Some(v) = value else {
+        return Ok(());
+    };
+    if v.is_null() {
+        return Ok(());
+    }
+    match widget_type {
+        "date" => {
+            let s = v.as_str().ok_or_else(|| {
+                anyhow::anyhow!("{path}: type \"date\" expects \"value\" as a string (RFC3339 with offset or Z), got {v}")
+            })?;
+            if !rfc3339_like_regex().is_match(s) {
+                bail!(
+                    "{path}: type \"date\" \"value\" must look like RFC3339 (e.g. 2026-03-22T09:00:00+08:00), got {s:?}"
+                );
+            }
         }
-        let t = obj
-            .get("type")
-            .ok_or_else(|| anyhow::anyhow!("widgets[{i}]: missing \"type\""))?;
-        let t_s = t
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("widgets[{i}]: \"type\" must be a string"))?;
-        if t_s.is_empty() {
-            bail!("widgets[{i}]: \"type\" must not be empty");
-        }
-        if !obj.contains_key("value") {
-            bail!("widgets[{i}]: missing \"value\" key (use null only if the widget type allows it)");
+        "amount" | "formula" => match v {
+            Value::Number(n) => {
+                if n.as_f64().map(|x| !x.is_finite()).unwrap_or(true) {
+                    bail!("{path}: type {widget_type:?} \"value\" number must be finite");
+                }
+            }
+            Value::String(s) => {
+                if s.trim().is_empty() {
+                    return Ok(());
+                }
+                if s.trim().parse::<f64>().is_err() {
+                    bail!(
+                        "{path}: type {widget_type:?} \"value\" must be a JSON number or a numeric string, got {s:?}"
+                    );
+                }
+            }
+            _ => bail!(
+                "{path}: type {widget_type:?} \"value\" must be a JSON number or numeric string, got {v}"
+            ),
+        },
+        _ => {}
+    }
+    Ok(())
+}
+
+fn validate_fieldlist_rows(value_field: Option<&Value>, path: &str) -> Result<()> {
+    let Some(v) = value_field else {
+        bail!("{path}: fieldList missing \"value\"");
+    };
+    if v.is_null() {
+        // e.g. `util scaffold-widgets` / wizard placeholder — no rows to check yet
+        return Ok(());
+    }
+    let rows = v
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("{path}: fieldList \"value\" must be a JSON array of rows (each row is an array of {{id,type,value}} widgets)"))?;
+    for (ri, row) in rows.iter().enumerate() {
+        let cells = row.as_array().ok_or_else(|| {
+            anyhow::anyhow!("{path}: fieldList value[{ri}] must be an array of column widgets, not a single object")
+        })?;
+        for (ci, cell) in cells.iter().enumerate() {
+            let cell_path = format!("{path}.value[{ri}][{ci}]");
+            validate_one_widget_value(cell, &cell_path)?;
         }
     }
     Ok(())
@@ -191,8 +284,9 @@ pub fn extract_widget_skeletons_value(root: &Value) -> Result<Value> {
     Ok(Value::Array(out))
 }
 
-/// Top-level form rows for `widgets.json`: one `{ "id", "type", "value": null }` per **root** definition widget (offline).
-/// Nested column widgets inside `fieldList` are **not** expanded here; fill `value` per `docs/AI.md` §7.
+/// Top-level form rows for `widgets.json`: one `{ "id", "type", "value": … }` per **root** definition widget (offline).
+/// For **`fieldList` / `fieldListMobile`**, `value` is **`[[ { id, type, value }, … ]]`** — one template row built from
+/// definition **`children`** (`value`: `null` per column, or nested `fieldList` shape if a column is also fieldList).
 pub fn scaffold_root_widgets_from_approval_data(root: &Value) -> Result<Value> {
     let widgets = approval_form_widgets_from_data(root)?;
     let mut out = Vec::new();
@@ -208,13 +302,63 @@ pub fn scaffold_root_widgets_from_approval_data(root: &Value) -> Result<Value> {
             .get("type")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("definition form[{i}]: missing string type"))?;
+        let value = scaffold_value_from_definition_object(o)
+            .with_context(|| format!("definition form[{i}] id={id:?} type={t:?}"))?;
         out.push(json!({
             "id": id,
             "type": t,
-            "value": Value::Null,
+            "value": value,
         }));
     }
     Ok(Value::Array(out))
+}
+
+fn scaffold_value_from_definition_object(o: &Map<String, Value>) -> Result<Value> {
+    let t = o.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    match t {
+        "fieldList" | "fieldListMobile" => {
+            let inner = build_one_fieldlist_row_from_children(o)?;
+            if inner.is_empty() {
+                Ok(json!([]))
+            } else {
+                Ok(Value::Array(vec![Value::Array(inner)]))
+            }
+        }
+        _ => Ok(Value::Null),
+    }
+}
+
+/// One row: one JSON object per column from `children`, matching API instance shape.
+fn build_one_fieldlist_row_from_children(field_list_def: &Map<String, Value>) -> Result<Vec<Value>> {
+    let Some(Value::Array(children)) = field_list_def.get("children") else {
+        return Ok(Vec::new());
+    };
+    let mut cols = Vec::new();
+    for (j, ch) in children.iter().enumerate() {
+        let co = ch
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("fieldList children[{j}]: expected object"))?;
+        let cid = co
+            .get("id")
+            .and_then(|x| x.as_str())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("fieldList children[{j}]: missing non-empty string id"))?;
+        let ct = co
+            .get("type")
+            .and_then(|x| x.as_str())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("fieldList children[{j}]: missing non-empty string type"))?;
+        let cell_value = match ct {
+            "fieldList" | "fieldListMobile" => scaffold_value_from_definition_object(co)?,
+            _ => Value::Null,
+        };
+        cols.push(json!({
+            "id": cid,
+            "type": ct,
+            "value": cell_value,
+        }));
+    }
+    Ok(cols)
 }
 
 fn collect_definition_id_types(widgets: &[Value], map: &mut HashMap<String, String>) {
@@ -387,6 +531,55 @@ mod tests {
     }
 
     #[test]
+    fn validate_widgets_fieldlist_inner_requires_type() {
+        let ok = json!([{
+            "id": "fl",
+            "type": "fieldList",
+            "value": [[
+                {"id": "c1", "type": "input", "value": "x"},
+                {"id": "c2", "type": "date", "value": "2026-03-22T09:00:00+08:00"}
+            ]]
+        }]);
+        validate_widgets_json_value(&ok).unwrap();
+
+        let bad = json!([{
+            "id": "fl",
+            "type": "fieldList",
+            "value": [[{"id": "c1", "value": "x"}]]
+        }]);
+        let e = validate_widgets_json_value(&bad).unwrap_err();
+        let s = e.to_string();
+        assert!(s.contains("value[0][0]"), "{s}");
+        assert!(s.contains("type"), "{s}");
+
+        let null_rows = json!([{"id": "fl", "type": "fieldList", "value": null}]);
+        validate_widgets_json_value(&null_rows).unwrap();
+    }
+
+    #[test]
+    fn validate_widgets_date_value_rfc3339() {
+        let ok = json!([{"id": "d", "type": "date", "value": "2026-03-22T09:00:00Z"}]);
+        validate_widgets_json_value(&ok).unwrap();
+        let ok2 = json!([{"id": "d", "type": "date", "value": "2026-03-22T09:00:00+08:00"}]);
+        validate_widgets_json_value(&ok2).unwrap();
+        let bad = json!([{"id": "d", "type": "date", "value": "2026-03-22"}]);
+        assert!(validate_widgets_json_value(&bad).unwrap_err().to_string().contains("RFC3339"));
+        let bad2 = json!([{"id": "d", "type": "date", "value": 1}]);
+        assert!(validate_widgets_json_value(&bad2).is_err());
+    }
+
+    #[test]
+    fn validate_widgets_amount_formula_numeric() {
+        let ok = json!([
+            {"id": "a", "type": "amount", "value": "12.5"},
+            {"id": "f", "type": "formula", "value": 0},
+        ]);
+        validate_widgets_json_value(&ok).unwrap();
+        let bad = json!([{"id": "a", "type": "amount", "value": "x"}]);
+        assert!(validate_widgets_json_value(&bad).unwrap_err().to_string().contains("numeric"));
+    }
+
+    #[test]
     fn read_json_object_path_or_stdin_accepts_object_rejects_array() {
         let mut p = std::env::temp_dir();
         p.push(format!(
@@ -479,6 +672,13 @@ mod tests {
         assert_eq!(a[0], json!({"id":"a","type":"input","value": null}));
         assert_eq!(a[1]["id"], json!("b"));
         assert_eq!(a[1]["type"], json!("fieldList"));
-        assert!(a[1].get("value").unwrap().is_null());
+        let rows = a[1]["value"].as_array().unwrap();
+        assert_eq!(rows.len(), 1);
+        let row0 = rows[0].as_array().unwrap();
+        assert_eq!(row0.len(), 1);
+        assert_eq!(
+            row0[0],
+            json!({"id":"c","type":"date","value": null})
+        );
     }
 }

@@ -269,7 +269,7 @@ fn augment_feishu_open_api_error(msg: &str) -> String {
     );
     if feishu_msg_sounds_like_form_widget_issue(msg) {
         out.push_str(
-            " Typical fixes: `date` → RFC3339 string (e.g. 2026-03-22T00:00:00+08:00), not Unix timestamp or bare YYYY-MM-DD; `fieldList` → 2D JSON array (rows × column widgets); `formula` → `value` often must be non-empty at create. Match each widget `type` from `approval dump --data-only` + `util extract-widgets`.",
+            " Typical fixes: `date` → RFC3339 string (e.g. 2026-03-22T00:00:00+08:00), not Unix timestamp or bare YYYY-MM-DD; `fieldList` → 2D JSON array (rows × column widgets), and **each inner cell** needs **`id` + `type` + `value`** (omitting inner `type` often yields a misleading 「控件类型为空」「index=0」— not necessarily the first root widget). Run **`util validate-widgets`** before `instance create` for paths like `widgets[i].value[row][col]`. `formula` → `value` often must be non-empty at create. Match each widget `type` from `approval dump --data-only` + `util extract-widgets`.",
         );
     } else if msg.contains("formula") || msg.contains("公式") {
         out.push_str(
@@ -344,6 +344,13 @@ mod tests {
         let s = super::augment_feishu_open_api_error("控件值不合法或者为空");
         assert!(s.contains("docs/AI.md"));
         assert!(s.contains("RFC3339"), "{s}");
+    }
+
+    #[test]
+    fn augment_feishu_error_fieldlist_inner_type_hint_for_vague_index_msg() {
+        let s = super::augment_feishu_open_api_error("表单控件类型为空。index= 0");
+        assert!(s.contains("fieldList"), "{s}");
+        assert!(s.contains("inner"), "{s}");
     }
 
     #[test]
