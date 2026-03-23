@@ -70,7 +70,7 @@ pub fn dispatch(cli: &Cli, action: &UtilAction) -> Result<()> {
             }
         }
         UtilAction::Init { output_dir } => {
-            const MAP_EXAMPLE: &str = include_str!("../../../../../approval-code-map.local.md.example");
+            const MAP_EXAMPLE: &str = include_str!("../../../../../docs/approval-code-map.local.template.md");
             let path = output_dir.join("approval-code-map.local.md");
             if path.exists() {
                 println!("{} already exists; not overwriting.", path.display());

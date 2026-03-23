@@ -3,7 +3,9 @@
 //! `FEISHU_TEST_USER_ID_TYPE` (default `open_id`), `FEISHU_TEST_TIMEOUT_SECS` (default `120`).
 //! Creates one API-defined approval and two instances (test tenant only).
 
-use feishu_approval_tool::{fetch_tenant_access_token, OpenApiClient};
+use feishu_approval_tool::{
+    api_paths, fetch_tenant_access_token, OpenApiClient,
+};
 use reqwest::Method;
 use serde_json::{json, Map, Value};
 use std::thread::sleep;
@@ -143,7 +145,7 @@ fn post_create_instance(c: &OpenApiClient, user_id_type: &str, body: &Value) -> 
     let v = api(
         c,
         Method::POST,
-        "/open-apis/approval/v4/instances",
+        api_paths::INSTANCES,
         &q,
         Some(body),
         "POST instances (create)",
@@ -171,7 +173,7 @@ fn cancel_instance(
     let _ = api(
         c,
         Method::POST,
-        "/open-apis/approval/v4/instances/cancel",
+        api_paths::INSTANCES_CANCEL,
         &q,
         Some(&body),
         ctx,
@@ -189,7 +191,7 @@ fn task_id_from_detail(v: &Value) -> String {
 }
 
 fn poll_instance_with_tasks(c: &OpenApiClient, instance_code: &str, ctx: &str) -> Value {
-    let path = format!("/open-apis/approval/v4/instances/{instance_code}");
+    let path = api_paths::instance(instance_code);
     for _attempt in 1..=60u32 {
         let v = api(c, Method::GET, &path, &[], None, ctx);
         if v["data"]["task_list"].as_array().map(|a| !a.is_empty()).unwrap_or(false) {
@@ -209,7 +211,7 @@ fn comments_roundtrip(
     text: &str,
 ) {
     let q = [("user_id", uid), ("user_id_type", uid_type)];
-    let path = format!("/open-apis/approval/v4/instances/{instance_code}/comments");
+    let path = api_paths::instance_comments(instance_code);
     let _ = api(c, Method::GET, &path, &q, None, &format!("GET comments {label}"));
     let content = serde_json::to_string(&json!({ "text": text })).unwrap();
     let _ = api(
@@ -231,7 +233,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::GET,
-        "/open-apis/approval/v4/districts",
+        api_paths::DISTRICTS,
         &[],
         None,
         "GET districts",
@@ -239,7 +241,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/districts/search",
+        api_paths::DISTRICTS_SEARCH,
         &[("locale", "zh-CN")],
         Some(&json!({ "keyword": "北京" })),
         "POST districts/search",
@@ -249,7 +251,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/external_instances/check",
+        api_paths::EXTERNAL_INSTANCES_CHECK,
         &[],
         Some(&json!({
             "instances": [{
@@ -268,7 +270,7 @@ fn approval_v4_live_end_to_end() {
     let created = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/approvals",
+        api_paths::APPROVALS,
         &q_ut,
         Some(&build_create_approval_body(tag, &widget)),
         "POST approvals",
@@ -278,7 +280,7 @@ fn approval_v4_live_end_to_end() {
         .expect("approval_code")
         .to_string();
 
-    let path_ap = format!("/open-apis/approval/v4/approvals/{approval_code}");
+    let path_ap = api_paths::approval_definition(&approval_code);
     let got = api(&c, Method::GET, &path_ap, &[], None, "GET approval");
     assert!(got.get("data").is_some());
 
@@ -297,7 +299,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/instances/query",
+        api_paths::INSTANCES_QUERY,
         &q_ut,
         Some(&json!({ "instance_code": instance_1.as_str(), "page_size": 10 })),
         "POST instances/query (1)",
@@ -308,7 +310,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/instances/preview",
+        api_paths::INSTANCES_PREVIEW,
         &q_ut,
         Some(&json!({
             "approval_code": approval_code.as_str(),
@@ -322,7 +324,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/instances/preview",
+        api_paths::INSTANCES_PREVIEW,
         &q_ut,
         Some(&json!({
             "instance_code": instance_1.as_str(),
@@ -337,7 +339,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::GET,
-        "/open-apis/approval/v4/external_tasks",
+        api_paths::EXTERNAL_TASKS,
         &[("page_size", "20")],
         Some(&json!({ "approval_codes": [approval_code.as_str()], "status": "PENDING" })),
         "GET external_tasks",
@@ -353,7 +355,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::GET,
-        "/open-apis/approval/v4/instances",
+        api_paths::INSTANCES,
         &[
             ("approval_code", approval_code.as_str()),
             ("start_time", start.as_str()),
@@ -367,7 +369,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/instances/query",
+        api_paths::INSTANCES_QUERY,
         &q_ut,
         Some(&json!({ "approval_code": approval_code.as_str(), "page_size": 10 })),
         "POST instances/query by approval",
@@ -376,7 +378,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/instances/search_cc",
+        api_paths::INSTANCES_SEARCH_CC,
         &q_ut,
         Some(&json!({
             "user_id": user_id.as_str(),
@@ -395,7 +397,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::GET,
-        "/open-apis/approval/v4/tasks/query",
+        api_paths::TASKS_QUERY,
         &tq,
         None,
         "GET tasks/query",
@@ -403,14 +405,14 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/tasks/search",
+        api_paths::TASKS_SEARCH,
         &q_ut,
         Some(&json!({ "user_id": user_id.as_str(), "page_size": 20 })),
         "POST tasks/search",
     );
 
-    let sub = format!("/open-apis/approval/v4/approvals/{}/subscribe", approval_code);
-    let unsub = format!("/open-apis/approval/v4/approvals/{}/unsubscribe", approval_code);
+    let sub = api_paths::subscribe(&approval_code);
+    let unsub = api_paths::unsubscribe(&approval_code);
     let _ = api(&c, Method::POST, &sub, &[], None, "POST subscribe");
     let _ = api(&c, Method::POST, &unsub, &[], None, "POST unsubscribe");
 
@@ -429,7 +431,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/instances/query",
+        api_paths::INSTANCES_QUERY,
         &q_ut,
         Some(&json!({ "instance_code": instance_2.as_str(), "page_size": 10 })),
         "POST instances/query (2)",
@@ -440,7 +442,7 @@ fn approval_v4_live_end_to_end() {
     let _ = api(
         &c,
         Method::POST,
-        "/open-apis/approval/v4/instances/preview",
+        api_paths::INSTANCES_PREVIEW,
         &q_ut,
         Some(&json!({
             "instance_code": instance_2.as_str(),

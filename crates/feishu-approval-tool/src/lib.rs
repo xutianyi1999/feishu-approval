@@ -2,6 +2,8 @@
 //! The `feishu-approval-tool` binary adds workflow-oriented CLI subcommands (`approval`, `instance`, `task`, `comment`, `file`, etc.) on top of this client.
 //! Native approval **image/attachment** widgets need a file `code` from `POST …/approval/openapi/v2/file/upload` ([`OpenApiClient::upload_approval_file`]).
 
+pub mod api_paths;
+
 use anyhow::{anyhow, Context, Result};
 use reqwest::blocking::multipart;
 use reqwest::blocking::Client;

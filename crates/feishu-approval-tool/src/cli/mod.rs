@@ -113,7 +113,7 @@ pub enum UtilAction {
     },
     /// Print credential/env summary (no secrets) and try resolving `tenant_access_token`
     Doctor,
-    /// Write `approval-code-map.local.md` from the built-in example if it does not exist (offline)
+    /// Write `approval-code-map.local.md` from `docs/approval-code-map.local.template.md` if it does not exist (offline)
     Init {
         /// Directory to place the file (default: current directory)
         #[arg(long, default_value = ".")]

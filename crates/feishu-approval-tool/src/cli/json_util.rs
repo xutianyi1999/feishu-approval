@@ -263,6 +263,42 @@ pub fn validate_widgets_against_approval_data(user_widgets: &Value, approval_roo
     Ok(())
 }
 
+/// Top-level keys on `POST .../instances` whose values are arrays of `{ "key", "value" }` per Feishu docs (not `node_id` / `approver_*_list` inside each element).
+const INSTANCE_NODE_LIST_KEYS: &[&str] = &[
+    "node_approver_open_id_list",
+    "node_approver_user_id_list",
+    "node_cc_open_id_list",
+    "node_cc_user_id_list",
+];
+
+/// Reject common mistakes when building `--extra-json` for `instance create` (Feishu uses **`key`** + **`value`** per element; parameter tables are easy to misread).
+pub fn validate_instance_create_extra_patch(patch: &Value) -> Result<()> {
+    let Some(root) = patch.as_object() else {
+        return Ok(());
+    };
+    for list_key in INSTANCE_NODE_LIST_KEYS {
+        let Some(Value::Array(items)) = root.get(*list_key) else {
+            continue;
+        };
+        for (i, item) in items.iter().enumerate() {
+            let Some(o) = item.as_object() else {
+                continue;
+            };
+            if o.contains_key("node_id") {
+                bail!(
+                    "extra JSON field `{list_key}[{i}]`: Feishu expects `key` (node id from `approval get` → `node_list`), not `node_id`. Each item is `{{ \"key\": \"…\", \"value\": [\"ou_…\"] }}`. See `docs/AI.md` (instance create / extra-json) and `embedded-docs/reference/approval-v4/instance/create.md` request body example."
+                );
+            }
+            if o.contains_key("approver_open_id_list") || o.contains_key("approver_user_id_list") {
+                bail!(
+                    "extra JSON field `{list_key}[{i}]`: use `value` (JSON array of open_id or user_id strings), not `approver_open_id_list` / `approver_user_id_list` as inner keys. See `docs/examples/instance-create-extra.sample.json`."
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Shallow-merge: top-level keys from `patch` overwrite `base`. If `patch` is not an object, returns error.
 pub fn merge_object(base: &mut Map<String, Value>, patch: Value) -> Result<()> {
     let obj = patch
@@ -277,6 +313,24 @@ pub fn merge_object(base: &mut Map<String, Value>, patch: Value) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn validate_instance_create_extra_rejects_guessed_inner_field_names() {
+        let ok = json!({
+            "node_approver_open_id_list": [{"key": "nid", "value": ["ou_x"]}]
+        });
+        validate_instance_create_extra_patch(&ok).unwrap();
+
+        let bad_node_id = json!({
+            "node_approver_open_id_list": [{"node_id": "nid", "value": ["ou_x"]}]
+        });
+        assert!(validate_instance_create_extra_patch(&bad_node_id).is_err());
+
+        let bad_inner_list = json!({
+            "node_approver_open_id_list": [{"key": "k", "approver_open_id_list": ["ou_x"]}]
+        });
+        assert!(validate_instance_create_extra_patch(&bad_inner_list).is_err());
+    }
 
     #[test]
     fn merge_object_overwrites_and_rejects_non_object_patch() {

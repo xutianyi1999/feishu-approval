@@ -1,18 +1,19 @@
 use crate::cli::exec::exec;
 use crate::cli::json_util::{
     form_api_string_from_array_value, merge_object, parse_json_object_from_str, read_json_path_or_stdin,
-    validate_widgets_against_approval_data,
+    validate_instance_create_extra_patch, validate_widgets_against_approval_data,
 };
 use super::{post_json_from_file, push_opt_query, query_vec_refs, resolve_instance_create_form};
 use crate::cli::{Cli, InstanceAction, InstanceFormTemplate};
 use anyhow::{anyhow, Context, Result};
+use feishu_approval_tool::api_paths;
 use reqwest::Method;
 use serde_json::{json, Map, Value};
 
 pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
     match action {
         InstanceAction::Get { instance } => {
-            let path = format!("/open-apis/approval/v4/instances/{instance}");
+            let path = api_paths::instance(instance);
             exec(cli, Method::GET, &path, &[], None)?;
         }
         InstanceAction::List {
@@ -33,7 +34,7 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             exec(
                 cli,
                 Method::GET,
-                "/open-apis/approval/v4/instances",
+                api_paths::INSTANCES,
                 &qref,
                 None,
             )?;
@@ -93,22 +94,26 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
                 m.insert("uuid".into(), json!(v));
             }
             if let Some(p) = extra_json {
-                merge_object(&mut m, read_json_path_or_stdin(p)?)?;
+                let patch = read_json_path_or_stdin(p)?;
+                validate_instance_create_extra_patch(&patch)?;
+                merge_object(&mut m, patch)?;
             }
             if let Some(s) = extra_json_inline {
-                merge_object(&mut m, parse_json_object_from_str(s)?)?;
+                let patch = parse_json_object_from_str(s)?;
+                validate_instance_create_extra_patch(&patch)?;
+                merge_object(&mut m, patch)?;
             }
             let body = Value::Object(m);
             exec(
                 cli,
                 Method::POST,
-                "/open-apis/approval/v4/instances",
+                api_paths::INSTANCES,
                 &[],
                 Some(&body),
             )?;
         }
         InstanceAction::Query { json_file } => {
-            post_json_from_file(cli, "/open-apis/approval/v4/instances/query", json_file)?;
+            post_json_from_file(cli, api_paths::INSTANCES_QUERY, json_file)?;
         }
         InstanceAction::Cc {
             approval_code,
@@ -133,7 +138,7 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             exec(
                 cli,
                 Method::POST,
-                "/open-apis/approval/v4/instances/cc",
+                api_paths::INSTANCES_CC,
                 &q,
                 Some(&Value::Object(m)),
             )?;
@@ -153,16 +158,16 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             exec(
                 cli,
                 Method::POST,
-                "/open-apis/approval/v4/instances/cancel",
+                api_paths::INSTANCES_CANCEL,
                 &q,
                 Some(&body),
             )?;
         }
         InstanceAction::Preview { json_file } => {
-            post_json_from_file(cli, "/open-apis/approval/v4/instances/preview", json_file)?;
+            post_json_from_file(cli, api_paths::INSTANCES_PREVIEW, json_file)?;
         }
         InstanceAction::SearchCc { json_file } => {
-            post_json_from_file(cli, "/open-apis/approval/v4/instances/search_cc", json_file)?;
+            post_json_from_file(cli, api_paths::INSTANCES_SEARCH_CC, json_file)?;
         }
         InstanceAction::SpecifiedRollback {
             user_id,
@@ -189,7 +194,7 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             exec(
                 cli,
                 Method::POST,
-                "/open-apis/approval/v4/instances/specified_rollback",
+                api_paths::INSTANCES_SPECIFIED_ROLLBACK,
                 &q,
                 Some(&Value::Object(m)),
             )?;
@@ -223,7 +228,7 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             exec(
                 cli,
                 Method::POST,
-                "/open-apis/approval/v4/instances/add_sign",
+                api_paths::INSTANCES_ADD_SIGN,
                 &[],
                 Some(&Value::Object(m)),
             )?;

@@ -4,6 +4,9 @@ use crate::cli::json_util::read_json_path_or_stdin;
 use super::{push_opt_query, query_vec_refs, resolve_form_str};
 use crate::cli::{Cli, TaskAction, TaskActOp};
 use anyhow::{anyhow, Result};
+use feishu_approval_tool::api_paths::{
+    TASKS_APPROVE, TASKS_QUERY, TASKS_REJECT, TASKS_RESUBMIT, TASKS_SEARCH, TASKS_TRANSFER,
+};
 use reqwest::Method;
 use serde_json::{json, Map, Value};
 use std::path::PathBuf;
@@ -142,7 +145,7 @@ pub fn dispatch(cli: &Cli, action: &TaskAction) -> Result<()> {
             exec(
                 cli,
                 Method::POST,
-                "/open-apis/approval/v4/tasks/search",
+                TASKS_SEARCH,
                 &[],
                 Some(&v),
             )?;
@@ -165,7 +168,7 @@ pub fn dispatch(cli: &Cli, action: &TaskAction) -> Result<()> {
             exec(
                 cli,
                 Method::GET,
-                "/open-apis/approval/v4/tasks/query",
+                TASKS_QUERY,
                 &qref,
                 None,
             )?;
@@ -187,7 +190,7 @@ fn dispatch_task_reject(
     form: Option<&str>,
     user_id_type: &str,
 ) -> Result<()> {
-    let path = "/open-apis/approval/v4/tasks/reject";
+    let path = TASKS_REJECT;
     if let Some(p) = batch_path {
         let v = read_json_path_or_stdin(p)?;
         let arr = v
@@ -295,8 +298,8 @@ fn task_act_dispatch(
     match op {
         TaskActOp::Approve | TaskActOp::Reject => {
             let path = match op {
-                TaskActOp::Approve => "/open-apis/approval/v4/tasks/approve",
-                TaskActOp::Reject => "/open-apis/approval/v4/tasks/reject",
+                TaskActOp::Approve => TASKS_APPROVE,
+                TaskActOp::Reject => TASKS_REJECT,
                 _ => unreachable!(),
             };
             approve_like(
@@ -317,7 +320,7 @@ fn task_act_dispatch(
                 .ok_or_else(|| anyhow!("task act transfer requires --transfer-user-id"))?;
             approve_like(
                 cli,
-                "/open-apis/approval/v4/tasks/transfer",
+                TASKS_TRANSFER,
                 approval_code,
                 instance_code,
                 user_id,
@@ -336,7 +339,7 @@ fn task_act_dispatch(
             )?;
             approve_like(
                 cli,
-                "/open-apis/approval/v4/tasks/resubmit",
+                TASKS_RESUBMIT,
                 approval_code,
                 instance_code,
                 user_id,

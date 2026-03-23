@@ -1,20 +1,21 @@
 # AI 使用指南（单一入口）
 
-执行任务以本文件为准。**「哪份文档何时打开」的决策表以 §1 为准**（`SKILL.md` 仅作交叉引用，避免两处各维护一张表）。**安装 CLI、全局参数、技能包应包含哪些文件**（含 **`approval-code-map.*` 约定**）见根目录 **`SKILL.md`**（「技能包目录」与参数表；不必通读全文）。
+**定位（AI-first）**：本仓库 CLI 与文档优先服务 **被技能/Agent 调用的工作流**（结构化命令、贴近 API）；人类偶尔用时同样读本文件即可，不必按「消费级产品」预期去猜交互。
+
+执行任务以本文件为准。**「哪份文档何时打开」的决策表以 §1 为准**（`SKILL.md` 仅作交叉引用）。**安装 CLI、全局参数、技能包应包含哪些文件**见根目录 **`SKILL.md`**（「技能包目录」与参数表；不必通读全文）。**审批中文名 ↔ `approval_code`** 只维护本节 **§8** + 本机 **`approval-code-map.local.md`**，**无**单独的仓库级映射说明文件。
 
 ### 必须 / 禁止（先扫一眼）
 
-- **禁止**编造或猜测 **`approval_code`**；用户只给中文名时 **先 Read `approval-code-map.local.md`（若存在），否则 Read `approval-code-map.md`**。
+- **禁止**编造或猜测 **`approval_code`**；用户只给中文名时 **先 Read `approval-code-map.local.md`（若存在）**；若无，请用户给出 code 或新建该文件（**`util init`** 或复制 **`docs/approval-code-map.local.template.md`** 到根目录并改名），约定见 **§8**。
 - **必须**用 **`approval dump` / `get`** 里的 **`form`** / **`node_list`** 对照控件 **`id`**、**`type`**、选项 **value**；不要凭印象填 `widgets.json`。
 - **勿通读** **`embedded-docs/INDEX.md`**：只打开与当前接口相关的**一行**链到单页。
 - 怀疑环境或 token：先跑 **`feishu-approval-tool util doctor`**（不打印密钥；会尝试换票）。
 
 ### 第一次用（少在文档间跳转）
 
-1. **主线只读本文件**（`docs/AI.md`）；**`SKILL.md`** 仅在安装 CLI、查环境变量/技能包目录时打开。
-2. **`approval-code-map.local.md`**（若存在）或 **`approval-code-map.md`**：仅当用户给了审批**中文名**、未给 **`approval_code`** 时打开查表（local 优先，见根目录 **`approval-code-map.md`** 说明）。
-3. **`embedded-docs/`** 仅当需要 HTTP 字段细则时，从 **`embedded-docs/INDEX.md` 选一行**进单页，勿通读 INDEX。
-4. 推荐流程与脚手架细节见下文 **§0**；可选捷径：**`util init`** 生成本地 **`approval-code-map.local.md`**；**`instance create --wizard`** 交互填简单控件；**`--template expense`** 使用内置费用形状示例（id 仍须按 dump 替换）。
+- **本文件**：执行流程、子命令、§7 排错；**`SKILL.md`**：安装 CLI、全局参数、技能包应含路径。
+- 仅**中文名**无 **`approval_code`**：先 **`approval-code-map.local.md`**，否则 **§8**；缺 HTTP 字段形状：**`embedded-docs/INDEX.md`** 选**一行**。
+- 主路径 **§0**；捷径：**`util init`**、**`instance create --wizard`**、**`--template expense`**。
 
 ## 0. 最小成功路径（推荐顺序）
 
@@ -34,7 +35,7 @@
 |------|------|
 | **任何操作** | 本文件 |
 | 安装 CLI、`.env`、全局 flags 表、技能包应含哪些路径 | 根目录 **`SKILL.md`** |
-| 用户只说审批中文名、未给 code | **`approval-code-map.local.md`**（优先）或 **`approval-code-map.md`**；模板 **`approval-code-map.local.md.example`**；亦可 **`util init`** |
+| 用户只说审批中文名、未给 code | **`approval-code-map.local.md`**（优先）；无则 **`util init`** 或复制 **`docs/approval-code-map.local.template.md`**；约定 **§8** |
 | 控件 value、fieldList、body | **`approval dump -c <code> --data-only -o approval-data.json`**（或 `dump` / `get`）看 `form` / `node_list`；复杂类型再点开 **`embedded-docs/.../approval-instance-form-control-parameters.md`** |
 | 仍缺 HTTP 形状 | **`embedded-docs/INDEX.md`** 中**一行**（勿通读 INDEX） |
 | flags / `after_long_help` | **`feishu-approval-tool -h`**、**`<子命令> --help`** |
@@ -51,7 +52,7 @@
 | `util extract-widgets` | **不调飞书**：读 **`approval dump --data-only`**（或带 **`data`** 的完整 GET JSON），打印 **控件骨架** 美化 JSON |
 | `util scaffold-widgets` | **不调飞书**：读同上 dump JSON，打印顶层 **`widgets.json` 模板**（`id` / `type` / `value`: `null`）；**`fieldList` 子列**须手写进二维 **`value`** |
 | `util doctor` | 打印凭证是否配置（**不打印密钥**），并尝试 **`resolve_tenant_token`**（会访问换票接口） |
-| `util init` | **不调飞书**：在指定目录（默认当前目录）写入 **`approval-code-map.local.md`**（来自内置 example），已存在则**不覆盖** |
+| `util init` | **不调飞书**：在指定目录（默认当前目录）写入 **`approval-code-map.local.md`**（内容与 **`docs/approval-code-map.local.template.md`** 相同），已存在则**不覆盖** |
 | `instance` | get / list / **create**（**`--widgets-json-file`** 或 `--form` / `--form-file` 或 **`--wizard`** 或 **`--template expense`** 四选一；可选 **`--validate-against-json`**）/ query / … |
 | `task` | act（approve\|reject\|transfer\|resubmit）/ 同名子命令；**`task reject`** 支持 **`--task-ids`**（逗号分隔，同一审批/实例/用户）或 **`--batch-json-file`**（JSON 数组，每行含 `approval_code` / `instance_code` / `user_id` / `task_id`）；**`task search`** 的 **`--json-file`** 须为 **JSON 对象**，可与 **`--pending-only`** 或 **`--task-status`**、**`--search-user-id`** 浅合并进 body |
 | `comment` | list / create / delete / remove |
@@ -80,7 +81,7 @@
 | `form.txt` | 由 `widgets.json` 经 `util form-string` 生成（见 §4 方式 B） |
 | `extra.json` | 与 body 浅合并的对象（如 `node_approver_open_id_list`） |
 
-示例控件数组：**`docs/examples/form-widgets.sample.json`**。脱敏的 dump **`data`** 形状示例（勿用于真实租户）：**`docs/examples/approval-data.sample.json`**。**费用报销类**常见 **fieldList + date + formula** 形状（**`id`/`type` 须换成本租户 dump**，见根目录 **`approval-code-map.md`** 中「费用报销」段）：**`docs/examples/expense-reimbursement-widgets.sample.json`**。由 `widgets.json` 生成 `form.txt`：`util form-string --json-file widgets.json > form.txt`（或 **`--json-file -`** 从 stdin 读）。
+示例控件数组：**`docs/examples/form-widgets.sample.json`**。脱敏的 dump **`data`** 形状示例（勿用于真实租户）：**`docs/examples/approval-data.sample.json`**。**费用报销类**常见 **fieldList + date + formula** 形状（**`id`/`type` 须换成本租户 dump**，见 **§8** 末段）：**`docs/examples/expense-reimbursement-widgets.sample.json`**。由 `widgets.json` 生成 `form.txt`：`util form-string --json-file widgets.json > form.txt`（或 **`--json-file -`** 从 stdin 读）。
 
 ### 对照定义与校验（离线）
 
@@ -119,6 +120,17 @@ feishu-approval-tool instance create \
 ```
 
 自选审批人：在 `extra.json` 里浅合并，例如 **`docs/examples/instance-create-extra.sample.json`**。
+
+### `node_approver_*_list` / `node_cc_*_list`（易错：不要凭参数名猜内部字段）
+
+Open API 文档里，**`node_approver_open_id_list`** 等字段的值是**对象数组**；每个元素必须是 **`key` + `value`**：
+
+- **`key`**：流程节点的 **`node_id`**（或文档所称 custom 节点 id），来自 **`approval get` / `approval dump`** 的 **`node_list`**。
+- **`value`**：**该节点上的审批人**的 **`open_id`（或 user_id）字符串数组**。
+
+文档参数表把「key」「value」写成子行，容易直觉写成 **`node_id`** + **`approver_open_id_list`** 这类**不存在的**内层字段名。请以 **`embedded-docs/reference/approval-v4/instance/create.md`** 文末 **请求体示例** 为准；本地示例 **`docs/examples/instance-create-extra.sample.json`**。
+
+使用 **`instance create --extra-json` / `--extra-json-inline`** 时，CLI 会在发送前对上述列表做**常见误写字段**检查（如内层出现 `node_id`）；仍建议对照官方 JSON 示例。
 
 ### `task reject` 批量（飞书每次请求仍要带齐四个字段）
 
@@ -161,6 +173,7 @@ CLI 会把你传的 **`--pending-only` / `--task-status` / `--search-user-id`** 
 | 现象 | 下一步（一条命令或动作） |
 |------|---------------------------|
 | 不确定 token / `.env` 是否生效 | **`feishu-approval-tool util doctor`** |
+| **`instance create` + `extra.json` 自选审批人报错 / 参数无效** | 核对 **`node_approver_*` / `node_cc_*`** 数组元素是否为 **`key` + `value`**（见上文 **§4** 易错段与 **`instance/create.md`** 请求体示例），勿写成内层 **`node_id`** / **`approver_open_id_list`** |
 | `No such file or directory` 且参数像 JSON | 改用**真实文件路径**、**`-`**（stdin）、**`--extra-json-inline`** 或 **`api post --json`** |
 | `invalid JSON` / parse error | 去 BOM、去尾逗号；stdin 是否为空；对 **`widgets.json`** 可先 **`util validate-widgets --json-file …`** |
 | 控件 id / type 与定义不符（或想先缩略阅读） | **`util extract-widgets --json-file approval-data.json`**；创建时加 **`--validate-against-json approval-data.json`** |
@@ -171,6 +184,18 @@ CLI 会把你传的 **`--pending-only` / `--task-status` / `--search-user-id`** 
 | 其他控件 value 业务错误 | **`approval get -c <code>`**（或 **`dump --data-only`**）对照 **`form`** 与 **`embedded-docs`** 对应 **type** 单页 |
 | 仍不理解请求体字段 | **`embedded-docs/INDEX.md`** 打开**一行**对应该 API 的单页 |
 
-## 8. 改本仓库代码时
+## 8. 审批中文名 ↔ `approval_code`
+
+仓库内**不再**单独维护 `approval-code-map.md`；映射规则与查表顺序只读本节。
+
+- **私有表**：根目录 **`approval-code-map.local.md`**（已在 **`.gitignore`**，**不入库**）。**不要**把仅本企业的「中文名 → code」提交进 Git，以免合并冲突。
+- **模板**：仓库 **`docs/approval-code-map.local.template.md`**（复制到根目录并命名为 **`approval-code-map.local.md`**），或 **`feishu-approval-tool util init`**（已存在则跳过）。
+- **查表**：用户只给中文名、未给 code → **先 Read `approval-code-map.local.md`**（若工作区有）；若无表，请用户给 code 或自建 local 文件。**禁止**编造 code。
+- **如何拿到 `approval_code`**：[飞书审批管理后台](https://www.feishu.cn/approval/admin/approvalList) 打开定义编辑页，从地址栏 URL 读取（[官方说明](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/approval-v4/approval/overview-of-approval-resources#8151e0ae)）；或 Open API / **`instance get`** 响应中的字段。
+- **校验 code**：**`approval get -c <code>`** 或 **`approval dump -c <code> --data-only`**；失败先 **`util doctor`**。
+
+**费用报销控件形状**（不是映射表）：**`docs/examples/expense-reimbursement-widgets.sample.json`**，与 **§7** 对照；所有 id 以本租户 dump 为准。
+
+## 9. 改本仓库代码时
 
 见根目录 **`AGENTS.md`**。

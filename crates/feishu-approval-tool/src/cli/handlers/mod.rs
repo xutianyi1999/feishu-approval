@@ -11,6 +11,7 @@ use super::exec::{exec, exec_file_upload};
 use super::json_util::{form_string_from_widgets_json_path, read_json_path_or_stdin, read_string_file};
 use super::{ApiAction, Cli, Command, FileAction};
 use anyhow::{anyhow, Context, Result};
+use feishu_approval_tool::api_paths;
 use feishu_approval_tool::{fetch_tenant_access_token, normalize_open_api_path};
 use reqwest::Method;
 use serde_json::Value;
@@ -27,11 +28,11 @@ pub fn dispatch(cli: &Cli) -> Result<()> {
         Command::Task { action } => task::dispatch(cli, action)?,
         Command::Comment { action } => comment::dispatch(cli, action)?,
         Command::Subscribe { approval_code } => {
-            let path = format!("/open-apis/approval/v4/approvals/{approval_code}/subscribe");
+            let path = api_paths::subscribe(approval_code);
             exec(cli, Method::POST, &path, &[], None)?;
         }
         Command::Unsubscribe { approval_code } => {
-            let path = format!("/open-apis/approval/v4/approvals/{approval_code}/unsubscribe");
+            let path = api_paths::unsubscribe(approval_code);
             exec(cli, Method::POST, &path, &[], None)?;
         }
         Command::Api { action } => dispatch_api(cli, action)?,
@@ -128,13 +129,23 @@ fn load_json_body(json: Option<&str>, json_file: Option<&PathBuf>) -> Result<Opt
     }
 }
 
+fn exec_normalized(
+    cli: &Cli,
+    method: Method,
+    path: &str,
+    query: &[String],
+    body: Option<&Value>,
+) -> Result<()> {
+    let path = normalize_open_api_path(path)?;
+    let q = parse_query(query)?;
+    let qref = query_vec_refs(&q);
+    exec(cli, method, &path, &qref, body)
+}
+
 fn dispatch_api(cli: &Cli, action: &ApiAction) -> Result<()> {
     match action {
         ApiAction::Get { path, query } => {
-            let path = normalize_open_api_path(path)?;
-            let q = parse_query(query)?;
-            let qref = query_vec_refs(&q);
-            exec(cli, Method::GET, &path, &qref, None)?;
+            exec_normalized(cli, Method::GET, path, query, None)?;
         }
         ApiAction::Post {
             path,
@@ -142,20 +153,13 @@ fn dispatch_api(cli: &Cli, action: &ApiAction) -> Result<()> {
             json,
             json_file,
         } => {
-            let path = normalize_open_api_path(path)?;
-            let body = load_json_body(json.as_deref(), json_file.as_ref())?;
-            let body = body.ok_or_else(|| {
+            let body = load_json_body(json.as_deref(), json_file.as_ref())?.ok_or_else(|| {
                 anyhow!("POST requires --json or --json-file (see docs/AI.md)")
             })?;
-            let q = parse_query(query)?;
-            let qref = query_vec_refs(&q);
-            exec(cli, Method::POST, &path, &qref, Some(&body))?;
+            exec_normalized(cli, Method::POST, path, query, Some(&body))?;
         }
         ApiAction::Delete { path, query } => {
-            let path = normalize_open_api_path(path)?;
-            let q = parse_query(query)?;
-            let qref = query_vec_refs(&q);
-            exec(cli, Method::DELETE, &path, &qref, None)?;
+            exec_normalized(cli, Method::DELETE, path, query, None)?;
         }
     }
     Ok(())
