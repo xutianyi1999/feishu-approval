@@ -166,6 +166,22 @@ impl OpenApiClient {
             return Err(anyhow!("HTTP {}: {}", status, text));
         }
 
+        if let Ok(v) = serde_json::from_str::<Value>(&text) {
+            if let Some(c) = v.get("code").and_then(|x| x.as_i64()) {
+                if c != 0 {
+                    let msg = v
+                        .get("msg")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let augmented = augment_feishu_open_api_error(&msg);
+                    return Err(anyhow!(
+                        "Feishu API error {c}: {msg}{augmented}\n\nResponse JSON:\n{text}"
+                    ));
+                }
+            }
+        }
+
         Ok(text)
     }
 
@@ -246,6 +262,28 @@ impl OpenApiClient {
     }
 }
 
+/// Extra guidance when Feishu returns a vague `msg` about form / widgets (Open API `code` != 0).
+fn augment_feishu_open_api_error(msg: &str) -> String {
+    let mut out = String::from(
+        "\n\n---\n[feishu-approval-tool] If this call sent `form` / widgets: see repo `docs/AI.md` §7 and `embedded-docs/.../approval-instance-form-control-parameters.md`.",
+    );
+    if feishu_msg_sounds_like_form_widget_issue(msg) {
+        out.push_str(
+            " Typical fixes: `date` → RFC3339 string (e.g. 2026-03-22T00:00:00+08:00), not Unix timestamp or bare YYYY-MM-DD; `fieldList` → 2D JSON array (rows × column widgets); `formula` → `value` often must be non-empty at create. Match each widget `type` from `approval dump --data-only` + `util extract-widgets`.",
+        );
+    }
+    out
+}
+
+fn feishu_msg_sounds_like_form_widget_issue(msg: &str) -> bool {
+    let lower = msg.to_lowercase();
+    msg.contains("控件")
+        || msg.contains("表单")
+        || msg.contains("不合法")
+        || msg.contains("为空")
+        || lower.contains("param is invalid")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,5 +334,19 @@ mod tests {
             .request_json(Method::GET, "/v1/foo", &[], None)
             .unwrap_err();
         assert!(err.to_string().contains("/open-apis/"));
+    }
+
+    #[test]
+    fn augment_feishu_error_adds_cheatsheet_for_widget_msgs() {
+        let s = super::augment_feishu_open_api_error("控件值不合法或者为空");
+        assert!(s.contains("docs/AI.md"));
+        assert!(s.contains("RFC3339"), "{s}");
+    }
+
+    #[test]
+    fn augment_feishu_error_short_for_unrelated_msg() {
+        let s = super::augment_feishu_open_api_error("rate limit");
+        assert!(s.contains("docs/AI.md"));
+        assert!(!s.contains("RFC3339"), "{s}");
     }
 }

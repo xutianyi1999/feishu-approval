@@ -81,7 +81,7 @@ pub enum Command {
         #[command(subcommand)]
         action: FileAction,
     },
-    /// Local helpers: `form-string` / `validate-widgets` / `extract-widgets` offline; `doctor` checks env and may exchange token
+    /// Local helpers: `form-string` / `validate-widgets` / `extract-widgets` / `scaffold-widgets` offline; `doctor` checks env and may exchange token
     Util {
         #[command(subcommand)]
         action: UtilAction,
@@ -103,6 +103,11 @@ pub enum UtilAction {
     },
     /// Offline: read `approval dump --data-only` (or full response); print compact widget skeleton JSON (`id`, `type`, `name`, `options`, `children`)
     ExtractWidgets {
+        #[arg(long)]
+        json_file: PathBuf,
+    },
+    /// Offline: read approval dump JSON; print top-level `widgets.json` template (`id`, `type`, `value`: null) — replace `value` per docs/AI.md §7
+    ScaffoldWidgets {
         #[arg(long)]
         json_file: PathBuf,
     },

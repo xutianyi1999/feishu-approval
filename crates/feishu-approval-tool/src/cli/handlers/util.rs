@@ -1,6 +1,6 @@
 use crate::cli::json_util::{
     extract_widget_skeletons_value, form_string_from_widgets_json_path, read_json_path_or_stdin,
-    validate_widgets_json_value,
+    scaffold_root_widgets_from_approval_data, validate_widgets_json_value,
 };
 use crate::cli::{Cli, UtilAction};
 use anyhow::Result;
@@ -23,6 +23,12 @@ pub fn dispatch(cli: &Cli, action: &UtilAction) -> Result<()> {
             let root = read_json_path_or_stdin(json_file)?;
             let sk = extract_widget_skeletons_value(&root)?;
             let pretty = serde_json::to_string_pretty(&sk)?;
+            println!("{pretty}");
+        }
+        UtilAction::ScaffoldWidgets { json_file } => {
+            let root = read_json_path_or_stdin(json_file)?;
+            let tpl = scaffold_root_widgets_from_approval_data(&root)?;
+            let pretty = serde_json::to_string_pretty(&tpl)?;
             println!("{pretty}");
         }
         UtilAction::Doctor => {

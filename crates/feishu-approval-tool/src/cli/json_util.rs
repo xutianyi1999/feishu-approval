@@ -182,6 +182,32 @@ pub fn extract_widget_skeletons_value(root: &Value) -> Result<Value> {
     Ok(Value::Array(out))
 }
 
+/// Top-level form rows for `widgets.json`: one `{ "id", "type", "value": null }` per **root** definition widget (offline).
+/// Nested column widgets inside `fieldList` are **not** expanded here; fill `value` per `docs/AI.md` §7.
+pub fn scaffold_root_widgets_from_approval_data(root: &Value) -> Result<Value> {
+    let widgets = approval_form_widgets_from_data(root)?;
+    let mut out = Vec::new();
+    for (i, w) in widgets.iter().enumerate() {
+        let o = w
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("definition form[{i}]: expected object"))?;
+        let id = o
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("definition form[{i}]: missing string id"))?;
+        let t = o
+            .get("type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("definition form[{i}]: missing string type"))?;
+        out.push(json!({
+            "id": id,
+            "type": t,
+            "value": Value::Null,
+        }));
+    }
+    Ok(Value::Array(out))
+}
+
 fn collect_definition_id_types(widgets: &[Value], map: &mut HashMap<String, String>) {
     for w in widgets {
         let Some(o) = w.as_object() else { continue };
@@ -361,5 +387,20 @@ mod tests {
         let approval = json!({"form": [{"id":"p","type":"fieldList","children":[{"id":"c","type":"date","name":"D"}]}]});
         let user = json!([{"id":"c","type":"date","value":"2024-01-01"}]);
         validate_widgets_against_approval_data(&user, &approval).unwrap();
+    }
+
+    #[test]
+    fn scaffold_root_widgets_one_row_per_root() {
+        let approval = json!({"form": [
+            {"id":"a","type":"input","name":"A"},
+            {"id":"b","type":"fieldList","name":"B","children":[{"id":"c","type":"date","name":"C"}]}
+        ]});
+        let v = scaffold_root_widgets_from_approval_data(&approval).unwrap();
+        let a = v.as_array().unwrap();
+        assert_eq!(a.len(), 2);
+        assert_eq!(a[0], json!({"id":"a","type":"input","value": null}));
+        assert_eq!(a[1]["id"], json!("b"));
+        assert_eq!(a[1]["type"], json!("fieldList"));
+        assert!(a[1].get("value").unwrap().is_null());
     }
 }
