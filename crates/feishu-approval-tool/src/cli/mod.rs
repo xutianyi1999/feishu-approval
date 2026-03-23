@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "feishu-approval-tool")]
-#[command(about = "Feishu workflow approval (v4): structured subcommands + `api` escape hatch")]
+#[command(about = "Feishu approval API v4 CLI + api escape hatch. JSON file args: path or `-` (stdin). AI: docs/AI.md.")]
 pub struct Cli {
     /// Open Platform host (no path suffix). Env: `FEISHU_OPEN_BASE`.
     #[arg(long, env = "FEISHU_OPEN_BASE", default_value = "https://open.feishu.cn")]
@@ -81,6 +81,33 @@ pub enum Command {
         #[command(subcommand)]
         action: FileAction,
     },
+    /// Local helpers: `form-string` / `validate-widgets` / `extract-widgets` offline; `doctor` checks env and may exchange token
+    Util {
+        #[command(subcommand)]
+        action: UtilAction,
+    },
+}
+
+/// Offline or formatting helpers (AI-friendly).
+#[derive(Subcommand)]
+pub enum UtilAction {
+    /// Read a JSON **array** of widget values from `--json-file` or `-` (stdin); print the one-line `form` string for `instance create --form` / `--form-file`
+    FormString {
+        #[arg(long)]
+        json_file: PathBuf,
+    },
+    /// Offline: check widget JSON array shape (`id`, `type`, `value` per item); does not call Feishu
+    ValidateWidgets {
+        #[arg(long)]
+        json_file: PathBuf,
+    },
+    /// Offline: read `approval dump --data-only` (or full response); print compact widget skeleton JSON (`id`, `type`, `name`, `options`, `children`)
+    ExtractWidgets {
+        #[arg(long)]
+        json_file: PathBuf,
+    },
+    /// Print credential/env summary (no secrets) and try resolving `tenant_access_token`
+    Doctor,
 }
 
 /// `image` / `attachment` must match the widget type in the approval definition.
@@ -116,14 +143,27 @@ pub enum FileAction {
 
 #[derive(Subcommand)]
 pub enum ApprovalAction {
-    /// GET approval definition by code
+    /// GET approval definition by code (pretty JSON to terminal; respects --raw)
     Get {
         #[arg(short = 'c', long)]
         approval_code: String,
     },
+    /// GET same as `get`, always pretty-print full JSON to stdout or `--output` (for AI caching / Read)
+    Dump {
+        #[arg(short = 'c', long)]
+        approval_code: String,
+        #[arg(short = 'o', long)]
+        output: Option<PathBuf>,
+        /// Write only the `data` object (smaller file for agents to Read)
+        #[arg(long)]
+        data_only: bool,
+    },
 }
 
 #[derive(Subcommand)]
+#[command(
+    after_long_help = "Subcommands with --json-file: pass a file path or `-` to read JSON from stdin. HTTP query `user_id_type` defaults to open_id (open_id | union_id | user_id)."
+)]
 pub enum InstanceAction {
     /// GET single instance (path param: instance_code or uuid)
     Get {
@@ -143,7 +183,7 @@ pub enum InstanceAction {
         #[arg(long)]
         page_token: Option<String>,
     },
-    /// POST create instance (`form` is the API stringified JSON array; or put that string in a file)
+    /// POST create instance. Form: exactly one of `--form`, `--form-file`, or `--widgets-json-file`. Extra body: `--extra-json` / `--extra-json-inline`.
     Create {
         #[arg(long)]
         approval_code: String,
@@ -153,6 +193,12 @@ pub enum InstanceAction {
         /// Read form string from file (trimmed; entire file becomes `form`)
         #[arg(long)]
         form_file: Option<PathBuf>,
+        /// JSON array of widget values (file or `-` stdin); same as `util form-string` then `--form-file`, in one step
+        #[arg(long)]
+        widgets_json_file: Option<PathBuf>,
+        /// Optional: `approval dump --data-only` JSON (or full GET response); offline check that widget `id`/`type` match definition before POST
+        #[arg(long)]
+        validate_against_json: Option<PathBuf>,
         #[arg(long)]
         open_id: Option<String>,
         #[arg(long)]
@@ -161,12 +207,16 @@ pub enum InstanceAction {
         department_id: Option<String>,
         #[arg(long)]
         uuid: Option<String>,
-        /// Merge JSON object into body (optional approvers, CC, i18n, etc.)
-        #[arg(long)]
+        /// Path to a JSON file whose object is shallow-merged into the body (e.g. node_approver_open_id_list). This is a filesystem path, not a JSON string. Use `-` to read JSON from stdin. Mutually exclusive with --extra-json-inline.
+        #[arg(long, conflicts_with = "extra_json_inline")]
         extra_json: Option<PathBuf>,
+        /// Same as --extra-json but pass one JSON object as a string (escape quotes for your shell). Mutually exclusive with --extra-json.
+        #[arg(long, conflicts_with = "extra_json")]
+        extra_json_inline: Option<String>,
     },
     /// POST query instance list (body: see embedded-docs instance/query)
     Query {
+        /// JSON request body: file path, or `-` for stdin
         #[arg(long)]
         json_file: PathBuf,
     },
@@ -198,11 +248,13 @@ pub enum InstanceAction {
     },
     /// POST preview flow (body: see approval-preview doc)
     Preview {
+        /// JSON request body: file path, or `-` for stdin
         #[arg(long)]
         json_file: PathBuf,
     },
     /// POST search CC list (Custom App only per docs)
     SearchCc {
+        /// JSON request body: file path, or `-` for stdin
         #[arg(long)]
         json_file: PathBuf,
     },
@@ -252,6 +304,9 @@ pub enum TaskActOp {
 }
 
 #[derive(Subcommand)]
+#[command(
+    after_long_help = "`task search --json-file`: file path or `-` (stdin). `--user-id-type` (default open_id): open_id | union_id | user_id."
+)]
 pub enum TaskAction {
     /// Approve, reject, transfer, or resubmit with the same core flags
     Act {
@@ -346,6 +401,7 @@ pub enum TaskAction {
     },
     /// POST tasks/search
     Search {
+        /// JSON request body: file path, or `-` for stdin
         #[arg(long)]
         json_file: PathBuf,
     },
@@ -365,6 +421,9 @@ pub enum TaskAction {
 }
 
 #[derive(Subcommand)]
+#[command(
+    after_long_help = "`comment create` / `comment remove` --json-file: file path or `-` (stdin)."
+)]
 pub enum CommentAction {
     /// GET list comments
     List {
@@ -383,6 +442,7 @@ pub enum CommentAction {
     Create {
         #[arg(short = 'i', long)]
         instance: String,
+        /// JSON request body: file path, or `-` for stdin
         #[arg(long)]
         json_file: PathBuf,
     },
@@ -401,28 +461,37 @@ pub enum CommentAction {
     Remove {
         #[arg(short = 'i', long)]
         instance: String,
+        /// JSON request body: file path, or `-` for stdin
         #[arg(long)]
         json_file: PathBuf,
     },
 }
 
 #[derive(Subcommand)]
+#[command(
+    after_long_help = "`api post` requires `--json` (inline body) or `--json-file` (path or `-` for stdin). `api get` / `api delete`: repeat `--query KEY=VALUE`."
+)]
 pub enum ApiAction {
     Get {
+        /// Open API path suffix (e.g. approval/v4/districts or /open-apis/...)
         path: String,
         #[arg(long = "query", value_name = "KEY=VALUE")]
         query: Vec<String>,
     },
     Post {
+        /// Open API path suffix (e.g. approval/v4/districts or /open-apis/...)
         path: String,
         #[arg(long = "query", value_name = "KEY=VALUE")]
         query: Vec<String>,
+        /// POST body as JSON string (mutually exclusive with --json-file)
         #[arg(long, conflicts_with = "json_file")]
         json: Option<String>,
-        #[arg(long)]
+        /// POST body from file path, or `-` for stdin (mutually exclusive with --json)
+        #[arg(long, conflicts_with = "json")]
         json_file: Option<PathBuf>,
     },
     Delete {
+        /// Open API path suffix (e.g. approval/v4/districts or /open-apis/...)
         path: String,
         #[arg(long = "query", value_name = "KEY=VALUE")]
         query: Vec<String>,

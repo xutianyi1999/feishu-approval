@@ -1,8 +1,8 @@
 # 审批显示名称 ↔ approval_code
 
-本文件路径固定：与 **`SKILL.md` 同目录** 下的 **`approval-code-map.md`**（勿改名）。安装与助手工作流见 **`SKILL.md`** 第 2–4 节。安装前由租户管理员填写；之后如有新审批定义，在本表追加行即可。
+与 **`SKILL.md` 同目录**，勿改名。租户管理员维护：有新审批定义时在本表追加行。用户使用**业务名称**而未给 `approval_code` 时须 **Read 本文件** 查表，**禁止**编造；查不到则请用户补充或更新本表。其余流程见 **`docs/AI.md`**。
 
-大模型在用户使用**业务名称**（如「请假」「报销」）而未直接给出 `approval_code` 时，须 **Read 本文件** 查找对应 `approval_code`，**禁止**编造或猜测 code。表中查不到时，请用户补充名称与 code 或更新本文件。
+**校验 code 是否仍有效**（需已配置凭证）：`feishu-approval-tool approval get -c <approval_code>`（或 `approval dump -c <code> --data-only`）；若失败先 **`util doctor`**。
 
 ## 如何填写 approval_code
 

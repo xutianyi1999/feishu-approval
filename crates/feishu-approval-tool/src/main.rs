@@ -1,4 +1,4 @@
-//! Feishu workflow approval CLI (Open API v4). See `skills/feishu-approval/SKILL.md` for env vars; loads `.env` from the working directory on startup.
+//! Feishu approval API v4 CLI. Env: repo `SKILL.md`; AI: `docs/AI.md`. Loads `.env` from cwd on startup.
 
 use anyhow::Result;
 
