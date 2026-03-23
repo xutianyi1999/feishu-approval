@@ -14,9 +14,9 @@
 1. **`feishu-approval-tool util doctor`** — 确认凭证与换票是否成功（可选但省时间）。
 2. 有 **`approval_code`** 则 **`approval dump -c <code> --data-only -o approval-data.json`**（或 `get`），从 **`data.form`** 看清控件。
 3. （推荐）**`feishu-approval-tool util extract-widgets --json-file approval-data.json`** — 打印紧凑 **控件骨架**（`id` / `type` / `name` / `options` / `children`），比整份 dump 更短、更好扫。
-4. 编写 **`widgets.json`**（数组），可先 **`util validate-widgets --json-file widgets.json`** 做形状检查；创建时可选 **`--validate-against-json approval-data.json`** 核对 **id/type 与定义一致**（仍不调定义接口，只读本地 JSON）。
+4. 编写 **`widgets.json`**（数组），可先 **`util validate-widgets --json-file widgets.json`** 做形状检查；创建时可选 **`--validate-against-json approval-data.json`** 核对 **id/type 与定义一致**（仍不调定义接口，只读本地 JSON）。**`value` 内部结构**（明细二维数组、日期字符串格式等）工具**不校验**，见 **§7**。
 5. **`instance create --widgets-json-file widgets.json ...`**（可加 **`--validate-against-json`**；或 `util form-string` → `--form-file`）。
-6. 若 API 报错，对照步骤 2–4；仍缺 HTTP 字段形状 → **`embedded-docs/INDEX.md`** 一行进单页。
+6. 若 API 报错，对照步骤 2–4 与 **§7**；仍缺 HTTP 字段形状 → **`embedded-docs/INDEX.md`** 一行进单页。
 
 ## 1. 阅读顺序（能省则省）
 
@@ -72,7 +72,7 @@
 ### 对照定义与校验（离线）
 
 - **`util extract-widgets --json-file approval-data.json`**：`form` 可为 **字符串**（API 常见）或 **数组**；骨架里 **`options`** 仅当定义里 `option` 为 `{value,text}[]`。
-- **`instance create ... --validate-against-json approval-data.json`**：在 POST 前检查 **`widgets.json`（或序列化后的 form 数组）** 里每个控件的 **`id`/`type`** 是否在定义的 **`form` 树**（含 **`children`**）中出现且 **type 一致**。不检查 **value** 是否业务合法。
+- **`instance create ... --validate-against-json approval-data.json`**：在 POST 前检查 **`widgets.json`（或序列化后的 form 数组）** 里每个控件的 **`id`/`type`** 是否在定义的 **`form` 树**（含 **`children`**）中出现且 **type 一致**。不检查 **`value` 嵌套形状或格式**（明细数组维度、日期 RFC3339 等），见 **§7**。
 
 ## 4. `instance create` 模板
 
@@ -105,13 +105,17 @@ feishu-approval-tool instance create \
 
 ## 7. 常见错误 → 先跑什么
 
+以下为 **value 形状/格式** 的典型坑（`--validate-against-json` 只保证 **id/type**，**不**保证 **value** 合法）：
+
 | 现象 | 下一步（一条命令或动作） |
 |------|---------------------------|
 | 不确定 token / `.env` 是否生效 | **`feishu-approval-tool util doctor`** |
 | `No such file or directory` 且参数像 JSON | 改用**真实文件路径**、**`-`**（stdin）、**`--extra-json-inline`** 或 **`api post --json`** |
 | `invalid JSON` / parse error | 去 BOM、去尾逗号；stdin 是否为空；对 **`widgets.json`** 可先 **`util validate-widgets --json-file …`** |
 | 控件 id / type 与定义不符（或想先缩略阅读） | **`util extract-widgets --json-file approval-data.json`**；创建时加 **`--validate-against-json approval-data.json`** |
-| 控件 value 等业务错误 | **`approval get -c <code>`**（或 **`dump --data-only`**）对照 **`form`** 与 **`embedded-docs`** 控件单页 |
+| **明细 / `fieldList` 类**：报错指向 value 结构、或期望「数组的数组」 | **`value` 为二维数组**：外层 = 行，内层 = 该行内各子控件的值对象；**勿**写成单层扁平对象。对照 **`approval dump`** 的 **`form`** 与 **`embedded-docs/.../approval-instance-form-control-parameters.md`**（fieldList） |
+| **日期类**：格式无效、类型不符 | **`value` 为 RFC3339 字符串**（例：`2025-03-23T10:00:00+08:00`）；**勿**用 Unix **时间戳数字**。对照同上 **`form`** 与控件参数单页 |
+| 其他控件 value 业务错误 | **`approval get -c <code>`**（或 **`dump --data-only`**）对照 **`form`** 与 **`embedded-docs`** 对应 **type** 单页 |
 | 仍不理解请求体字段 | **`embedded-docs/INDEX.md`** 打开**一行**对应该 API 的单页 |
 
 ## 8. 改本仓库代码时

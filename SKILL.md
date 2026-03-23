@@ -1,6 +1,6 @@
 ---
 name: feishu-approval
-description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool. docs/AI.md; util extract-widgets, validate-widgets, doctor; instance create --widgets-json-file --validate-against-json; approval dump --data-only. Triggers: 飞书审批, Lark approval, approval_code, instance_code, 抄送, 加签, 订阅."
+description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool. docs/AI.md §7 (fieldList 2D array; date RFC3339 not timestamp); util extract-widgets, validate-widgets, doctor; instance create --widgets-json-file --validate-against-json; approval dump --data-only. Triggers: 飞书审批, Lark approval, approval_code, instance_code, 抄送, 加签, 订阅."
 ---
 
 # 飞书审批技能（`feishu-approval-tool`）
