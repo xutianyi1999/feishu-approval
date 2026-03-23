@@ -24,8 +24,45 @@
 3. （推荐）**`feishu-approval-tool util extract-widgets --json-file approval-data.json`** — 打印紧凑 **控件骨架**（`id` / `type` / `name` / `options` / `children`），比整份 dump 更短、更好扫。
 3b. （可选）**`feishu-approval-tool util scaffold-widgets --json-file approval-data.json`** — 生成仅含顶层控件的 **`widgets.json` 模板**（`value`: `null`），再按骨架与 §7 补全。
 4. 编写 **`widgets.json`**（数组），可先 **`util validate-widgets --json-file widgets.json`** 做离线检查（**`fieldList` 内层**、**`date` RFC3339 形态**、**`amount`/`formula` 数字形态** 等，见 **`util validate-widgets` 说明**）；**`instance create`** 提交前会做**同一套**检查。可选 **`--validate-against-json approval-data.json`** 核对**顶层** **id/type 与定义一致**（仍不调定义接口，只读本地 JSON）。个别业务规则仍以飞书为准，见 **§7**。
-5. **`instance create --widgets-json-file widgets.json ...`**（可加 **`--validate-against-json`**；或 `util form-string` → `--form-file`）。
+5. **`instance create --widgets-json-file widgets.json ...`**（可加 **`--validate-against-json`**；或 `util form-string` → **`--form-file`**）。**首次或给最终用户确认前**，可加 **`--dry-run`**：只把将提交的 **JSON body**（含 **`form` 字符串**）**pretty 打印到 stdout**，**不发起 HTTP**（仍执行离线校验与 **`--validate-against-json`**）。确认后去掉 **`--dry-run`** 再执行同一条创建命令。
 6. 若 API 报错：CLI 在飞书 **`code` ≠ 0** 时会 **non-zero 退出**，stderr 中除官方 **`msg`** 外可能附带 **§7 类提示**（仍须按控件 **type** 自查）。对照步骤 2–4 与 **§7**；仍缺 HTTP 字段形状 → **`embedded-docs/INDEX.md`** 一行进单页。
+
+### 0.1 标准管道（减少 Agent 临时拼命令）
+
+以下占位符须替换为本租户的 **`approval_code`**、**`open_id`** / **`user_id`** 等。
+
+**A. 定义 → 骨架 → 校验 → 预览 body → 创建**
+
+```bash
+feishu-approval-tool approval dump -c "<APPROVAL_CODE>" --data-only -o approval-data.json
+feishu-approval-tool util extract-widgets --json-file approval-data.json > skeleton.json
+# 在 skeleton 基础上编辑并保存为 widgets.json（或先用 scaffold-widgets 再改）
+feishu-approval-tool util validate-widgets --json-file widgets.json
+feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
+  --widgets-json-file widgets.json --open-id "<OPEN_ID>" \
+  --validate-against-json approval-data.json --dry-run
+feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
+  --widgets-json-file widgets.json --open-id "<OPEN_ID>" \
+  --validate-against-json approval-data.json
+```
+
+**B. 从 stdin 读 widgets（无中间文件或管道上游生成）**
+
+```bash
+feishu-approval-tool util validate-widgets --json-file - < widgets.json
+feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
+  --widgets-json-file - --open-id "<OPEN_ID>" --dry-run < widgets.json
+```
+
+（**`--widgets-json-file -`** 与 **`validate-widgets -`** 均表示从 **stdin** 读 JSON 数组。）
+
+**C. 先得到单行 `form` 再创建**
+
+```bash
+feishu-approval-tool util form-string --json-file widgets.json > form.txt
+feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
+  --form-file form.txt --open-id "<OPEN_ID>" --dry-run
+```
 
 ## 1. 阅读顺序（能省则省）
 
@@ -54,7 +91,7 @@
 | `util scaffold-widgets` | **不调飞书**：读同上 dump JSON，打印顶层 **`widgets.json` 模板**；普通控件 **`value`: `null`**；**`fieldList` / `fieldListMobile`** 从定义 **`children`** 生成 **`[[ { id, type, value }, … ]]`** 的一行占位（子列含 **`type`**，**`value`** 多为 `null`；嵌套明细会递归占位） |
 | `util doctor` | 打印凭证是否配置（**不打印密钥**），并尝试 **`resolve_tenant_token`**（会访问换票接口） |
 | `util init` | **不调飞书**：在指定目录（默认当前目录）写入 **`approval-code-map.local.md`**（内容与 **`docs/approval-code-map.local.template.md`** 相同），已存在则**不覆盖** |
-| `instance` | get / list / **create**（**`--widgets-json-file`** 或 `--form` / `--form-file` 或 **`--wizard`** 或 **`--template expense`** 四选一；可选 **`--validate-against-json`**）/ query / … |
+| `instance` | get / list / **create**（**`--widgets-json-file`** 或 `--form` / `--form-file` 或 **`--wizard`** 或 **`--template expense`** 四选一；可选 **`--validate-against-json`**；**`--dry-run`** 只打印请求体、不调 API）/ query / … |
 | `task` | act（approve\|reject\|transfer\|resubmit）/ 同名子命令；**`task reject`** 支持 **`--task-ids`**（逗号分隔，同一审批/实例/用户）或 **`--batch-json-file`**（JSON 数组，每行含 `approval_code` / `instance_code` / `user_id` / `task_id`）；**`task search`** 的 **`--json-file`** 须为 **JSON 对象**，可与 **`--pending-only`** 或 **`--task-status`**、**`--search-user-id`** 浅合并进 body |
 | `comment` | list / create / delete / remove |
 | `subscribe` / `unsubscribe` | 按 `approval_code` |

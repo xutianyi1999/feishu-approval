@@ -42,6 +42,7 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
         }
         InstanceAction::Create {
             approval_code,
+            dry_run,
             form,
             form_file,
             widgets_json_file,
@@ -108,6 +109,11 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
                 merge_object(&mut m, patch)?;
             }
             let body = Value::Object(m);
+            if *dry_run {
+                let pretty = serde_json::to_string_pretty(&body)?;
+                println!("{pretty}");
+                return Ok(());
+            }
             exec(
                 cli,
                 Method::POST,

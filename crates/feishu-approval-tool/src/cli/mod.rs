@@ -210,10 +210,13 @@ pub enum InstanceAction {
         #[arg(long)]
         page_token: Option<String>,
     },
-    /// POST create instance. Form: one of `--form` / `--form-file` / `--widgets-json-file` / `--wizard` / `--template`. Extra body: `--extra-json` / `--extra-json-inline`.
+    /// POST create instance. Form: one of `--form` / `--form-file` / `--widgets-json-file` / `--wizard` / `--template`. Extra body: `--extra-json` / `--extra-json-inline`. Use `--dry-run` to print the JSON body and **not** call the API.
     Create {
         #[arg(long)]
         approval_code: String,
+        /// Print the request body (pretty JSON) to stdout and exit; **no** HTTP request (still runs offline validation)
+        #[arg(long)]
+        dry_run: bool,
         /// Form value: stringified JSON array (single line / escaped, as in API docs)
         #[arg(long, conflicts_with_all = ["wizard", "template"])]
         form: Option<String>,
