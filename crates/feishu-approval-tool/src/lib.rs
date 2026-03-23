@@ -37,8 +37,6 @@ struct TokenResponse {
     code: Option<i64>,
     msg: Option<String>,
     tenant_access_token: Option<String>,
-    #[allow(dead_code)]
-    expire: Option<i64>,
 }
 
 /// Exchange app credentials for `tenant_access_token`.
@@ -271,6 +269,10 @@ fn augment_feishu_open_api_error(msg: &str) -> String {
         out.push_str(
             " Typical fixes: `date` → RFC3339 string (e.g. 2026-03-22T00:00:00+08:00), not Unix timestamp or bare YYYY-MM-DD; `fieldList` → 2D JSON array (rows × column widgets); `formula` → `value` often must be non-empty at create. Match each widget `type` from `approval dump --data-only` + `util extract-widgets`.",
         );
+    } else if msg.contains("formula") || msg.contains("公式") {
+        out.push_str(
+            " If a `formula` widget is involved: the API often requires a non-empty string `value` (e.g. same as a related amount); an empty `value` commonly surfaces as a generic invalid-widget error.",
+        );
     }
     out
 }
@@ -328,7 +330,6 @@ mod tests {
     fn resolve_tenant_token_override_and_open_api_client() {
         let t = resolve_tenant_token("https://unused.example", Some("  bearer-value  ")).unwrap();
         assert_eq!(t, "bearer-value");
-        let _ = OpenApiClient::new(" https://x.com/ ", "t", 0).unwrap();
         let c = OpenApiClient::new("https://x.com", "t", 5).unwrap();
         let err = c
             .request_json(Method::GET, "/v1/foo", &[], None)
@@ -348,5 +349,12 @@ mod tests {
         let s = super::augment_feishu_open_api_error("rate limit");
         assert!(s.contains("docs/AI.md"));
         assert!(!s.contains("RFC3339"), "{s}");
+    }
+
+    #[test]
+    fn augment_feishu_error_formula_hint_without_chinese_widget_msg() {
+        let s = super::augment_feishu_open_api_error("formula value invalid");
+        assert!(s.contains("formula"));
+        assert!(s.contains("non-empty"), "{s}");
     }
 }

@@ -17,7 +17,7 @@
 1. **先** Read **`approval-code-map.local.md`**（若工作区存在该文件）；
 2. **否则** Read **本文件**（`approval-code-map.md`）——通常只有说明，**无**你司私有表时需请用户补充或创建 local 文件。
 
-**禁止**编造 **`approval_code`**。查不到则请用户给出 code 或维护 **`approval-code-map.local.md`**。其余流程见 **`docs/AI.md`**。
+**禁止**编造 **`approval_code`**。查不到则请用户给出 code 或维护 **`approval-code-map.local.md`**（可用 **`util init`** 生成模板）。其余流程见 **`docs/AI.md`**（§0 / §1）。
 
 **校验 code 是否仍有效**（需已配置凭证）：`feishu-approval-tool approval get -c <approval_code>`（或 `approval dump -c <code> --data-only`）；若失败先 **`util doctor`**。
 

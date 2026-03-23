@@ -1,6 +1,6 @@
 # AI 使用指南（单一入口）
 
-执行任务以本文件为准。**安装、全局参数、技能包应包含哪些文件**（含 **`approval-code-map.*` 约定**）见根目录 **`SKILL.md`** 中「技能包目录」（不必通读全文，按需查表即可）。
+执行任务以本文件为准。**「哪份文档何时打开」的决策表以 §1 为准**（`SKILL.md` 仅作交叉引用，避免两处各维护一张表）。**安装 CLI、全局参数、技能包应包含哪些文件**（含 **`approval-code-map.*` 约定**）见根目录 **`SKILL.md`**（「技能包目录」与参数表；不必通读全文）。
 
 ### 必须 / 禁止（先扫一眼）
 
@@ -14,11 +14,11 @@
 1. **主线只读本文件**（`docs/AI.md`）；**`SKILL.md`** 仅在安装 CLI、查环境变量/技能包目录时打开。
 2. **`approval-code-map.local.md`**（若存在）或 **`approval-code-map.md`**：仅当用户给了审批**中文名**、未给 **`approval_code`** 时打开查表（local 优先，见根目录 **`approval-code-map.md`** 说明）。
 3. **`embedded-docs/`** 仅当需要 HTTP 字段细则时，从 **`embedded-docs/INDEX.md` 选一行**进单页，勿通读 INDEX。
-4. 空白 **`widgets.json` 起点**：**`util scaffold-widgets --json-file approval-data.json`**（每个**顶层**控件一行，`value` 先为 `null` 再按 §7 填写）；**`fieldList` 内子列**须自行按定义嵌进二维 **`value`**，脚手架不展开子控件。仓库**未提供**全交互式 `instance create --wizard`（问答向导）；人机协作可用脚手架 + §7，或让终端用户在本机补全 JSON。
+4. 推荐流程与脚手架细节见下文 **§0**；可选捷径：**`util init`** 生成本地 **`approval-code-map.local.md`**；**`instance create --wizard`** 交互填简单控件；**`--template expense`** 使用内置费用形状示例（id 仍须按 dump 替换）。
 
 ## 0. 最小成功路径（推荐顺序）
 
-1. **`feishu-approval-tool util doctor`** — 确认凭证与换票是否成功（可选但省时间）。
+1. **`feishu-approval-tool util doctor`** — 确认凭证与换票是否成功（可选但省时间）。无本地映射文件时可先 **`util init`** 再编辑 **`approval-code-map.local.md`**。
 2. 有 **`approval_code`** 则 **`approval dump -c <code> --data-only -o approval-data.json`**（或 `get`），从 **`data.form`** 看清控件。
 3. （推荐）**`feishu-approval-tool util extract-widgets --json-file approval-data.json`** — 打印紧凑 **控件骨架**（`id` / `type` / `name` / `options` / `children`），比整份 dump 更短、更好扫。
 3b. （可选）**`feishu-approval-tool util scaffold-widgets --json-file approval-data.json`** — 生成仅含顶层控件的 **`widgets.json` 模板**（`value`: `null`），再按骨架与 §7 补全。
@@ -28,10 +28,13 @@
 
 ## 1. 阅读顺序（能省则省）
 
+**本表为「文档怎么读」唯一详表**（根目录 **`SKILL.md`** 仅指向此处，避免重复维护）。
+
 | 场景 | 打开 |
 |------|------|
 | **任何操作** | 本文件 |
-| 用户只说审批中文名、未给 code | **`approval-code-map.local.md`**（优先）或 **`approval-code-map.md`** |
+| 安装 CLI、`.env`、全局 flags 表、技能包应含哪些路径 | 根目录 **`SKILL.md`** |
+| 用户只说审批中文名、未给 code | **`approval-code-map.local.md`**（优先）或 **`approval-code-map.md`**；模板 **`approval-code-map.local.md.example`**；亦可 **`util init`** |
 | 控件 value、fieldList、body | **`approval dump -c <code> --data-only -o approval-data.json`**（或 `dump` / `get`）看 `form` / `node_list`；复杂类型再点开 **`embedded-docs/.../approval-instance-form-control-parameters.md`** |
 | 仍缺 HTTP 形状 | **`embedded-docs/INDEX.md`** 中**一行**（勿通读 INDEX） |
 | flags / `after_long_help` | **`feishu-approval-tool -h`**、**`<子命令> --help`** |
@@ -48,8 +51,9 @@
 | `util extract-widgets` | **不调飞书**：读 **`approval dump --data-only`**（或带 **`data`** 的完整 GET JSON），打印 **控件骨架** 美化 JSON |
 | `util scaffold-widgets` | **不调飞书**：读同上 dump JSON，打印顶层 **`widgets.json` 模板**（`id` / `type` / `value`: `null`）；**`fieldList` 子列**须手写进二维 **`value`** |
 | `util doctor` | 打印凭证是否配置（**不打印密钥**），并尝试 **`resolve_tenant_token`**（会访问换票接口） |
-| `instance` | get / list / **create**（**`--widgets-json-file`** 或 `--form` / `--form-file` 三选一；可选 **`--validate-against-json`** 对照 dump）/ query / … |
-| `task` | act（approve\|reject\|transfer\|resubmit）/ 同名子命令 / search / query |
+| `util init` | **不调飞书**：在指定目录（默认当前目录）写入 **`approval-code-map.local.md`**（来自内置 example），已存在则**不覆盖** |
+| `instance` | get / list / **create**（**`--widgets-json-file`** 或 `--form` / `--form-file` 或 **`--wizard`** 或 **`--template expense`** 四选一；可选 **`--validate-against-json`**）/ query / … |
+| `task` | act（approve\|reject\|transfer\|resubmit）/ 同名子命令；**`task reject`** 支持 **`--task-ids`**（逗号分隔，同一审批/实例/用户）或 **`--batch-json-file`**（JSON 数组，每行含 `approval_code` / `instance_code` / `user_id` / `task_id`）；**`task search`** 的 **`--json-file`** 须为 **JSON 对象**，可与 **`--pending-only`** 或 **`--task-status`**、**`--search-user-id`** 浅合并进 body |
 | `comment` | list / create / delete / remove |
 | `subscribe` / `unsubscribe` | 按 `approval_code` |
 | `file upload` | 附件/图片 → 表单 `code` |
@@ -100,9 +104,47 @@ feishu-approval-tool instance create \
   --form-file ./form.txt \
   --open-id ou_xxx \
   --extra-json ./extra.json
+
+# 方式 C：交互问答（简单控件；fieldList/图片/附件见提示）
+feishu-approval-tool instance create \
+  --approval-code YOUR_CODE \
+  --wizard \
+  --open-id ou_xxx
+
+# 方式 D：内置费用报销**形状**示例（须把控件 id 换成你租户 dump 里的真实 id）
+feishu-approval-tool instance create \
+  --approval-code YOUR_CODE \
+  --template expense \
+  --open-id ou_xxx
 ```
 
 自选审批人：在 `extra.json` 里浅合并，例如 **`docs/examples/instance-create-extra.sample.json`**。
+
+### `task reject` 批量（飞书每次请求仍要带齐四个字段）
+
+同一 **`approval_code` / `instance_code` / `user_id`** 下多个任务：
+
+```bash
+feishu-approval-tool task reject \
+  --approval-code CODE --instance-code INST --user-id UID \
+  --task-ids id1,id2,id3 \
+  --comment "批量拒绝"
+```
+
+多实例混排用 **`--batch-json-file`**，内容为数组，元素形如：
+`{ "approval_code": "…", "instance_code": "…", "user_id": "…", "task_id": "…", "comment": "可选" }`。
+
+### `task search` 只看待办
+
+请求体须为**对象**（可用 **`echo {} > empty.json`** 或 **`--json-file -`** 与 stdin 的 `{}`）：
+
+```bash
+feishu-approval-tool task search --json-file empty.json --search-user-id ou_xxx --pending-only
+# 或显式状态（与飞书文档一致，如 PENDING）
+feishu-approval-tool task search --json-file body.json --task-status PENDING
+```
+
+CLI 会把你传的 **`--pending-only` / `--task-status` / `--search-user-id`** 写进 body（后写覆盖 JSON 文件里同名字段）。
 
 ## 5. `user_id_type`
 

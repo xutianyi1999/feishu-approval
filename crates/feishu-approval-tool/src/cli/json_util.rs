@@ -10,6 +10,15 @@ pub fn read_json_file(path: &Path) -> Result<Value> {
     serde_json::from_str(&s).with_context(|| format!("invalid JSON in {}", path.display()))
 }
 
+/// Read a JSON **object** from a file or stdin (`-`). Used when the API expects `{ ... }` (e.g. `tasks/search` body).
+pub fn read_json_object_path_or_stdin(path: &Path) -> Result<Map<String, Value>> {
+    let v = read_json_path_or_stdin(path)?;
+    match v {
+        Value::Object(m) => Ok(m),
+        _ => bail!("expected JSON object {{ ... }}, not an array or primitive"),
+    }
+}
+
 /// Read JSON from a file, or from stdin when `path` is `-`.
 pub fn read_json_path_or_stdin(path: &Path) -> Result<Value> {
     if path == Path::new("-") {
@@ -321,6 +330,21 @@ mod tests {
         assert!(validate_widgets_json_value(&json!([{"id": "", "type": "input", "value": 1}])).is_err());
         let ok_null = json!([{"id": "w", "type": "input", "value": null}]);
         validate_widgets_json_value(&ok_null).unwrap();
+    }
+
+    #[test]
+    fn read_json_object_path_or_stdin_accepts_object_rejects_array() {
+        let mut p = std::env::temp_dir();
+        p.push(format!(
+            "feishu_approval_tool_obj_test_{}.json",
+            std::process::id()
+        ));
+        std::fs::write(&p, r#"{"user_id":"x"}"#).unwrap();
+        let m = read_json_object_path_or_stdin(&p).unwrap();
+        assert_eq!(m.get("user_id").unwrap(), &json!("x"));
+        std::fs::write(&p, r#"[1]"#).unwrap();
+        assert!(read_json_object_path_or_stdin(&p).is_err());
+        std::fs::remove_file(&p).ok();
     }
 
     #[test]

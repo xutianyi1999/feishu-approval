@@ -1,5 +1,5 @@
 use crate::cli::exec::exec;
-use super::{post_json_from_file, query_vec_refs};
+use super::{post_json_from_file, push_opt_query, query_vec_refs};
 use crate::cli::{Cli, CommentAction};
 use anyhow::Result;
 use reqwest::Method;
@@ -18,12 +18,8 @@ pub fn dispatch(cli: &Cli, action: &CommentAction) -> Result<()> {
                 ("user_id".into(), user_id.clone()),
                 ("user_id_type".into(), user_id_type.clone()),
             ];
-            if let Some(p) = page_token {
-                q.push(("page_token".into(), p.clone()));
-            }
-            if let Some(p) = page_size {
-                q.push(("page_size".into(), p.clone()));
-            }
+            push_opt_query(&mut q, "page_token", page_token.as_ref());
+            push_opt_query(&mut q, "page_size", page_size.as_ref());
             let qref = query_vec_refs(&q);
             exec(cli, Method::GET, &path, &qref, None)?;
         }

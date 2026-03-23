@@ -3,7 +3,8 @@ use crate::cli::json_util::{
     scaffold_root_widgets_from_approval_data, validate_widgets_json_value,
 };
 use crate::cli::{Cli, UtilAction};
-use anyhow::Result;
+use anyhow::{Context, Result};
+use std::fs;
 use feishu_approval_tool::resolve_tenant_token;
 use std::env;
 
@@ -67,6 +68,21 @@ pub fn dispatch(cli: &Cli, action: &UtilAction) -> Result<()> {
                 Ok(_) => println!("Token resolve: OK (not printed)"),
                 Err(e) => println!("Token resolve: FAIL — {e:#}"),
             }
+        }
+        UtilAction::Init { output_dir } => {
+            const MAP_EXAMPLE: &str = include_str!("../../../../../approval-code-map.local.md.example");
+            let path = output_dir.join("approval-code-map.local.md");
+            if path.exists() {
+                println!("{} already exists; not overwriting.", path.display());
+            } else {
+                fs::write(&path, MAP_EXAMPLE)
+                    .with_context(|| format!("write {}", path.display()))?;
+                println!(
+                    "Wrote {} — edit the table; keep this file gitignored locally.",
+                    path.display()
+                );
+            }
+            println!("Next: set FEISHU_APP_ID + FEISHU_APP_SECRET (or FEISHU_TENANT_ACCESS_TOKEN), then `feishu-approval-tool util doctor`.");
         }
     }
     Ok(())

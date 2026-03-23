@@ -81,7 +81,7 @@ pub enum Command {
         #[command(subcommand)]
         action: FileAction,
     },
-    /// Local helpers: `form-string` / `validate-widgets` / `extract-widgets` / `scaffold-widgets` offline; `doctor` checks env and may exchange token
+    /// Local helpers: `form-string` / `validate-widgets` / `extract-widgets` / `scaffold-widgets` / `init` offline; `doctor` checks env and may exchange token
     Util {
         #[command(subcommand)]
         action: UtilAction,
@@ -113,6 +113,12 @@ pub enum UtilAction {
     },
     /// Print credential/env summary (no secrets) and try resolving `tenant_access_token`
     Doctor,
+    /// Write `approval-code-map.local.md` from the built-in example if it does not exist (offline)
+    Init {
+        /// Directory to place the file (default: current directory)
+        #[arg(long, default_value = ".")]
+        output_dir: PathBuf,
+    },
 }
 
 /// `image` / `attachment` must match the widget type in the approval definition.
@@ -129,6 +135,13 @@ impl FileWidgetKind {
             FileWidgetKind::Attachment => "attachment",
         }
     }
+}
+
+/// Built-in widget array templates for `instance create --template` (replace placeholder ids from your dump).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum InstanceFormTemplate {
+    /// Expense-style sample (`docs/examples/expense-reimbursement-widgets.sample.json`); ids must match your approval
+    Expense,
 }
 
 #[derive(Subcommand)]
@@ -188,19 +201,25 @@ pub enum InstanceAction {
         #[arg(long)]
         page_token: Option<String>,
     },
-    /// POST create instance. Form: exactly one of `--form`, `--form-file`, or `--widgets-json-file`. Extra body: `--extra-json` / `--extra-json-inline`.
+    /// POST create instance. Form: one of `--form` / `--form-file` / `--widgets-json-file` / `--wizard` / `--template`. Extra body: `--extra-json` / `--extra-json-inline`.
     Create {
         #[arg(long)]
         approval_code: String,
         /// Form value: stringified JSON array (single line / escaped, as in API docs)
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["wizard", "template"])]
         form: Option<String>,
         /// Read form string from file (trimmed; entire file becomes `form`)
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["wizard", "template"])]
         form_file: Option<PathBuf>,
         /// JSON array of widget values (file or `-` stdin); same as `util form-string` then `--form-file`, in one step
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["wizard", "template"])]
         widgets_json_file: Option<PathBuf>,
+        /// Interactive stdin prompts to fill a widgets template (from dump JSON or widgets array file); use with `--open-id` or `--user-id`, or enter open_id when prompted
+        #[arg(long, conflicts_with_all = ["form", "form_file", "widgets_json_file", "template"])]
+        wizard: bool,
+        /// Use a built-in widgets JSON template (still replace widget ids from `approval dump --data-only`)
+        #[arg(long, value_enum, conflicts_with_all = ["form", "form_file", "widgets_json_file", "wizard"])]
+        template: Option<InstanceFormTemplate>,
         /// Optional: `approval dump --data-only` JSON (or full GET response); offline check that widget `id`/`type` match definition before POST
         #[arg(long)]
         validate_against_json: Option<PathBuf>,
@@ -310,7 +329,7 @@ pub enum TaskActOp {
 
 #[derive(Subcommand)]
 #[command(
-    after_long_help = "`task search --json-file`: file path or `-` (stdin). `--user-id-type` (default open_id): open_id | union_id | user_id."
+    after_long_help = "`task search --json-file`: JSON object body (path or `-`). Optional `--pending-only` / `--task-status` / `--search-user-id` shallow-merge into that object. `task reject`: Feishu requires approval_code+instance_code+user_id+task_id per call; use `--task-ids` for same instance or `--batch-json-file` for mixed rows. `--user-id-type` (default open_id): open_id | union_id | user_id."
 )]
 pub enum TaskAction {
     /// Approve, reject, transfer, or resubmit with the same core flags
@@ -353,16 +372,22 @@ pub enum TaskAction {
         #[arg(long, default_value = "open_id")]
         user_id_type: String,
     },
-    /// POST reject task
+    /// POST reject task(s). Each HTTP call still sends approval_code, instance_code, user_id, task_id (Feishu API).
     Reject {
-        #[arg(long)]
-        approval_code: String,
-        #[arg(long)]
-        instance_code: String,
-        #[arg(long)]
-        user_id: String,
-        #[arg(long)]
-        task_id: String,
+        #[arg(long, required_unless_present_any = ["task_ids", "batch_json_file"], conflicts_with_all = ["task_ids", "batch_json_file"])]
+        task_id: Option<String>,
+        /// Comma-separated task ids (same `--approval-code`, `--instance-code`, `--user-id` for all)
+        #[arg(long, required_unless_present_any = ["task_id", "batch_json_file"], conflicts_with_all = ["task_id", "batch_json_file"])]
+        task_ids: Option<String>,
+        /// JSON array of objects `{ "approval_code", "instance_code", "user_id", "task_id", "comment"? }`
+        #[arg(long, required_unless_present_any = ["task_id", "task_ids"], conflicts_with_all = ["task_id", "task_ids"])]
+        batch_json_file: Option<PathBuf>,
+        #[arg(long, required_unless_present = "batch_json_file")]
+        approval_code: Option<String>,
+        #[arg(long, required_unless_present = "batch_json_file")]
+        instance_code: Option<String>,
+        #[arg(long, required_unless_present = "batch_json_file")]
+        user_id: Option<String>,
         #[arg(long)]
         comment: Option<String>,
         #[arg(long)]
@@ -406,9 +431,18 @@ pub enum TaskAction {
     },
     /// POST tasks/search
     Search {
-        /// JSON request body: file path, or `-` for stdin
+        /// JSON request body object: file path, or `-` for stdin (use `{}` for an empty object)
         #[arg(long)]
         json_file: PathBuf,
+        /// Shallow-merge `task_status` into the body (e.g. PENDING, REJECTED; see embedded-docs task/search)
+        #[arg(long, conflicts_with = "pending_only")]
+        task_status: Option<String>,
+        /// Same as `--task-status PENDING`
+        #[arg(long, default_value_t = false, conflicts_with = "task_status")]
+        pending_only: bool,
+        /// Shallow-merge `user_id` into the body (search filter; not query `user_id_type`)
+        #[arg(long)]
+        search_user_id: Option<String>,
     },
     /// GET tasks/query (user task groups / tabs)
     Query {

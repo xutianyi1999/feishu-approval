@@ -5,6 +5,7 @@ mod comment;
 mod instance;
 mod task;
 mod util;
+mod wizard;
 
 use super::exec::{exec, exec_file_upload};
 use super::json_util::{form_string_from_widgets_json_path, read_json_path_or_stdin, read_string_file};
@@ -96,6 +97,12 @@ pub(super) fn resolve_instance_create_form(
 /// Borrow `Vec<(String,String)>` query pairs as `&str` slices for `exec`.
 pub(super) fn query_vec_refs(q: &[(String, String)]) -> Vec<(&str, &str)> {
     q.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect()
+}
+
+pub(super) fn push_opt_query(q: &mut Vec<(String, String)>, key: &str, val: Option<&String>) {
+    if let Some(v) = val {
+        q.push((key.to_string(), v.clone()));
+    }
 }
 
 fn parse_query(items: &[String]) -> Result<Vec<(String, String)>> {

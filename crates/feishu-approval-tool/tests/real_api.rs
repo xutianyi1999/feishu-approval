@@ -299,7 +299,7 @@ fn approval_v4_live_end_to_end() {
         Method::POST,
         "/open-apis/approval/v4/instances/query",
         &q_ut,
-        Some(&json!({ "instance_code": instance_1.clone(), "page_size": 10 })),
+        Some(&json!({ "instance_code": instance_1.as_str(), "page_size": 10 })),
         "POST instances/query (1)",
     );
 
@@ -311,9 +311,9 @@ fn approval_v4_live_end_to_end() {
         "/open-apis/approval/v4/instances/preview",
         &q_ut,
         Some(&json!({
-            "approval_code": approval_code.clone(),
-            "user_id": user_id.clone(),
-            "form": json_form_content(&json!([{ "id": widget.clone(), "type": "input", "value": "preview" }]))
+            "approval_code": approval_code.as_str(),
+            "user_id": user_id.as_str(),
+            "form": json_form_content(&json!([{ "id": widget.as_str(), "type": "input", "value": "preview" }]))
         })),
         "POST preview before",
     );
@@ -325,8 +325,8 @@ fn approval_v4_live_end_to_end() {
         "/open-apis/approval/v4/instances/preview",
         &q_ut,
         Some(&json!({
-            "instance_code": instance_1.clone(),
-            "user_id": user_id.clone(),
+            "instance_code": instance_1.as_str(),
+            "user_id": user_id.as_str(),
             "task_id": tid1
         })),
         "POST preview after (1)",
@@ -339,7 +339,7 @@ fn approval_v4_live_end_to_end() {
         Method::GET,
         "/open-apis/approval/v4/external_tasks",
         &[("page_size", "20")],
-        Some(&json!({ "approval_codes": [approval_code.clone()], "status": "PENDING" })),
+        Some(&json!({ "approval_codes": [approval_code.as_str()], "status": "PENDING" })),
         "GET external_tasks",
     );
 
@@ -369,7 +369,7 @@ fn approval_v4_live_end_to_end() {
         Method::POST,
         "/open-apis/approval/v4/instances/query",
         &q_ut,
-        Some(&json!({ "approval_code": approval_code.clone(), "page_size": 10 })),
+        Some(&json!({ "approval_code": approval_code.as_str(), "page_size": 10 })),
         "POST instances/query by approval",
     );
 
@@ -379,8 +379,8 @@ fn approval_v4_live_end_to_end() {
         "/open-apis/approval/v4/instances/search_cc",
         &q_ut,
         Some(&json!({
-            "user_id": user_id.clone(),
-            "instance_code": instance_1.clone(),
+            "user_id": user_id.as_str(),
+            "instance_code": instance_1.as_str(),
             "page_size": 10
         })),
         "POST search_cc",
@@ -405,7 +405,7 @@ fn approval_v4_live_end_to_end() {
         Method::POST,
         "/open-apis/approval/v4/tasks/search",
         &q_ut,
-        Some(&json!({ "user_id": user_id.clone(), "page_size": 20 })),
+        Some(&json!({ "user_id": user_id.as_str(), "page_size": 20 })),
         "POST tasks/search",
     );
 
@@ -431,7 +431,7 @@ fn approval_v4_live_end_to_end() {
         Method::POST,
         "/open-apis/approval/v4/instances/query",
         &q_ut,
-        Some(&json!({ "instance_code": instance_2.clone(), "page_size": 10 })),
+        Some(&json!({ "instance_code": instance_2.as_str(), "page_size": 10 })),
         "POST instances/query (2)",
     );
 
@@ -443,8 +443,8 @@ fn approval_v4_live_end_to_end() {
         "/open-apis/approval/v4/instances/preview",
         &q_ut,
         Some(&json!({
-            "instance_code": instance_2.clone(),
-            "user_id": user_id.clone(),
+            "instance_code": instance_2.as_str(),
+            "user_id": user_id.as_str(),
             "task_id": tid2
         })),
         "POST preview after (2)",

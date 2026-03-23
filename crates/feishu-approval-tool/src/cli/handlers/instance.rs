@@ -1,9 +1,10 @@
 use crate::cli::exec::exec;
 use crate::cli::json_util::{
-    merge_object, parse_json_object_from_str, read_json_path_or_stdin, validate_widgets_against_approval_data,
+    form_api_string_from_array_value, merge_object, parse_json_object_from_str, read_json_path_or_stdin,
+    validate_widgets_against_approval_data,
 };
-use super::{post_json_from_file, query_vec_refs, resolve_instance_create_form};
-use crate::cli::{Cli, InstanceAction};
+use super::{post_json_from_file, push_opt_query, query_vec_refs, resolve_instance_create_form};
+use crate::cli::{Cli, InstanceAction, InstanceFormTemplate};
 use anyhow::{anyhow, Context, Result};
 use reqwest::Method;
 use serde_json::{json, Map, Value};
@@ -26,12 +27,8 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
                 ("start_time".into(), start_time.clone()),
                 ("end_time".into(), end_time.clone()),
             ];
-            if let Some(p) = page_size {
-                q.push(("page_size".into(), p.clone()));
-            }
-            if let Some(p) = page_token {
-                q.push(("page_token".into(), p.clone()));
-            }
+            push_opt_query(&mut q, "page_size", page_size.as_ref());
+            push_opt_query(&mut q, "page_token", page_token.as_ref());
             let qref = query_vec_refs(&q);
             exec(
                 cli,
@@ -46,6 +43,8 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             form,
             form_file,
             widgets_json_file,
+            wizard: use_wizard,
+            template,
             validate_against_json,
             open_id,
             user_id,
@@ -54,7 +53,13 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
             extra_json,
             extra_json_inline,
         } => {
-            let form_str = resolve_instance_create_form(form, form_file, widgets_json_file)?;
+            let form_str = if *use_wizard {
+                super::wizard::interactive_form_string()?
+            } else if let Some(tpl) = template {
+                form_string_from_template(*tpl)?
+            } else {
+                resolve_instance_create_form(form, form_file, widgets_json_file)?
+            };
             if let Some(p) = validate_against_json {
                 let approval_root = read_json_path_or_stdin(p)?;
                 let user_widgets: Value = serde_json::from_str(&form_str).context(
@@ -62,6 +67,11 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
                 )?;
                 validate_widgets_against_approval_data(&user_widgets, &approval_root)?;
             }
+            let (open_id, user_id) = if *use_wizard {
+                super::wizard::ensure_open_id_or_user_id(open_id.as_ref(), user_id.as_ref())?
+            } else {
+                (open_id.clone(), user_id.clone())
+            };
             if open_id.is_none() && user_id.is_none() {
                 return Err(anyhow!(
                     "--open-id or --user-id is required (see docs/AI.md)"
@@ -220,4 +230,13 @@ pub fn dispatch(cli: &Cli, action: &InstanceAction) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn form_string_from_template(t: InstanceFormTemplate) -> Result<String> {
+    const EXPENSE: &str = include_str!("../../../../../docs/examples/expense-reimbursement-widgets.sample.json");
+    let raw = match t {
+        InstanceFormTemplate::Expense => EXPENSE,
+    };
+    let v: Value = serde_json::from_str(raw).context("built-in expense template JSON")?;
+    form_api_string_from_array_value(&v)
 }
