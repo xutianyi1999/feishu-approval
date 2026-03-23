@@ -6,7 +6,7 @@
 
 ### 必须 / 禁止（先扫一眼）
 
-- **禁止**编造或猜测 **`approval_code`**；用户只给中文名时 **先 Read `approval-code-map.local.md`（若存在）**；若无，请用户给出 code 或新建该文件（**`util init`** 或复制 **`docs/approval-code-map.local.template.md`** 到根目录并改名），约定见 **§8**。
+- **禁止**编造或猜测 **`approval_code`**。用户只给**审批显示名称**、未给 code 时：**先 Read 根目录 `approval-code-map.local.md`**（若工作区有）。**若该文件不存在**，**必须**向用户索要 **`approval_code`**（不得凭名称继续调 API）。用户给出 code 后：**必须**在本工作区**创建或更新** **`approval-code-map.local.md`**（无文件时先 **`feishu-approval-tool util init`** 再编辑表格新增一行；已有文件则追加一行），写入「显示名称（与用户表述一致）↔ code」。**建议**随即 **`approval get -c <code>`** 校验 code 有效。约定与细节见 **§8**。
 - **必须**用 **`approval dump` / `get`** 里的 **`form`** / **`node_list`** 对照控件 **`id`**、**`type`**、选项 **value**；不要凭印象填 `widgets.json`。
 - **勿通读** **`embedded-docs/INDEX.md`**：只打开与当前接口相关的**一行**链到单页。
 - 怀疑环境或 token：先跑 **`feishu-approval-tool util doctor`**（不打印密钥；会尝试换票）。
@@ -14,7 +14,7 @@
 ### 第一次用（少在文档间跳转）
 
 - **本文件**：执行流程、子命令、§7 排错；**`SKILL.md`**：安装 CLI、全局参数、技能包应含路径。
-- 仅**中文名**无 **`approval_code`**：先 **`approval-code-map.local.md`**，否则 **§8**；缺 HTTP 字段形状：**`embedded-docs/INDEX.md`** 选**一行**。
+- 仅**中文名**无 **`approval_code`**：先 Read **`approval-code-map.local.md`**；无此文件则**必须问用户要 code**，用户提供后**写入该文件**（**§8**）；缺 HTTP 字段形状：**`embedded-docs/INDEX.md`** 选**一行**。
 - 主路径 **§0**；捷径：**`util init`**、**`instance create --wizard`**、**`--template expense`**。
 
 ## 0. 最小成功路径（推荐顺序）
@@ -35,7 +35,7 @@
 |------|------|
 | **任何操作** | 本文件 |
 | 安装 CLI、`.env`、全局 flags 表、技能包应含哪些路径 | 根目录 **`SKILL.md`** |
-| 用户只说审批中文名、未给 code | **`approval-code-map.local.md`**（优先）；无则 **`util init`** 或复制 **`docs/approval-code-map.local.template.md`**；约定 **§8** |
+| 用户只说审批中文名、未给 code | **Read `approval-code-map.local.md`**；**若无此文件 → 必须向用户索要 `approval_code` → 用户提供后创建/更新该文件**（可先 **`util init`**）；约定 **§8** |
 | 控件 value、fieldList、body | **`approval dump -c <code> --data-only -o approval-data.json`**（或 `dump` / `get`）看 `form` / `node_list`；复杂类型再点开 **`embedded-docs/.../approval-instance-form-control-parameters.md`** |
 | 仍缺 HTTP 形状 | **`embedded-docs/INDEX.md`** 中**一行**（勿通读 INDEX） |
 | flags / `after_long_help` | **`feishu-approval-tool -h`**、**`<子命令> --help`** |
@@ -189,9 +189,13 @@ CLI 会把你传的 **`--pending-only` / `--task-status` / `--search-user-id`** 
 仓库内**不再**单独维护 `approval-code-map.md`；映射规则与查表顺序只读本节。
 
 - **私有表**：根目录 **`approval-code-map.local.md`**（已在 **`.gitignore`**，**不入库**）。**不要**把仅本企业的「中文名 → code」提交进 Git，以免合并冲突。
-- **模板**：仓库 **`docs/approval-code-map.local.template.md`**（复制到根目录并命名为 **`approval-code-map.local.md`**），或 **`feishu-approval-tool util init`**（已存在则跳过）。
-- **查表**：用户只给中文名、未给 code → **先 Read `approval-code-map.local.md`**（若工作区有）；若无表，请用户给 code 或自建 local 文件。**禁止**编造 code。
-- **如何拿到 `approval_code`**：[飞书审批管理后台](https://www.feishu.cn/approval/admin/approvalList) 打开定义编辑页，从地址栏 URL 读取（[官方说明](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/approval-v4/approval/overview-of-approval-resources#8151e0ae)）；或 Open API / **`instance get`** 响应中的字段。
+- **模板**：仓库 **`docs/approval-code-map.local.template.md`**，或 **`feishu-approval-tool util init`**（在目标目录生成 **`approval-code-map.local.md`**；已存在则**不覆盖**）。
+- **查表与强制索要 code**：用户只给**审批显示名称**、未给 **`approval_code`** 时：
+  1. **Read** 工作区根目录 **`approval-code-map.local.md`**（若存在）。
+  2. **若文件不存在**：**必须**请用户提供 **`approval_code`**（可一并提示用户从管理后台 URL 或审批定义里复制，见下条）。**禁止**编造、猜测或用名称继续调用需 code 的 CLI。
+  3. **用户给出 code 后**：**必须**落盘映射——若尚无 **`approval-code-map.local.md`**：先在工作区根（或当前技能根）执行 **`feishu-approval-tool util init`**，再 **编辑**生成的文件，在「映射表」中增加一行（两列表格：**审批显示名称**与用户说法一致，第二列为用户提供的 **`approval_code`**）；删除模板里占位示例行（若仍保留）。若文件已存在但**没有**该名称对应行：同样**追加一行**，勿覆盖他人行。
+  4. **建议**：写入后用 **`approval get -c <code>`** 或 **`approval dump -c <code> --data-only`** 校验；失败先 **`util doctor`**。
+- **如何拿到 `approval_code`**（可发给用户作说明）：[飞书审批管理后台](https://www.feishu.cn/approval/admin/approvalList) 打开定义编辑页，从地址栏 URL 读取（[官方说明](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/approval-v4/approval/overview-of-approval-resources#8151e0ae)）；或 Open API / **`instance get`** 响应中的字段。
 - **校验 code**：**`approval get -c <code>`** 或 **`approval dump -c <code> --data-only`**；失败先 **`util doctor`**。
 
 **费用报销控件形状**（不是映射表）：**`docs/examples/expense-reimbursement-widgets.sample.json`**，与 **§7** 对照；所有 id 以本租户 dump 为准。

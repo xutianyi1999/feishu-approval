@@ -7,7 +7,7 @@
 | 场景 | 打开 |
 |------|------|
 | **助手 / AI**：流程与 JSON 约定 | `docs/AI.md` |
-| 仅审批中文名、未给 `approval_code` | `approval-code-map.local.md`（优先，若存在）；`docs/AI.md` **§8**；模板 **`docs/approval-code-map.local.template.md`** 或 **`util init`** |
+| 仅审批中文名、未给 `approval_code` | Read `approval-code-map.local.md`；**若无文件 → 必须向用户索要 code → 用户提供后 `util init`（若需）并写入/追加映射行**；`docs/AI.md` **§8**；模板 **`docs/approval-code-map.local.template.md`** |
 | 总览、方法列表（易有笔误，以子目录单页为准） | `reference/approval-v4/approval-overview.md` |
 | 实例 API（create/get/list/query/cc/cancel/specified_rollback 等为目录下同名 `.md`） | `reference/approval-v4/instance/` |
 | 任务 API（approve/reject/transfer/resubmit/search/query 等为目录下同名 `.md`） | `reference/approval-v4/task/` |
