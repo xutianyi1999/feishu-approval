@@ -1,6 +1,6 @@
 ---
 name: feishu-approval
-description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool. docs/AI.md; approval-code-map.local.md first (gitignored), else approval-code-map.md; §7 fieldList/date/formula; util scaffold-widgets, extract-widgets, validate-widgets, doctor; Feishu code≠0 → stderr hints; instance create --widgets-json-file --validate-against-json; approval dump --data-only. Triggers: 飞书审批, Lark approval, approval_code, instance_code, 抄送, 加签, 订阅."
+description: "OpenClaw: Feishu/Lark approval v4 via feishu-approval-tool. docs/AI.md; approval-code-map.local.md first (gitignored), else approval-code-map.md + .example template; §7 fieldList/date/formula; util scaffold-widgets, extract-widgets, validate-widgets, form-string, doctor; Feishu code≠0 → stderr hints; instance create --widgets-json-file --validate-against-json; approval dump --data-only. Triggers: 飞书审批, Lark approval, approval_code, instance_code, 抄送, 加签, 订阅."
 ---
 
 # 飞书审批技能（`feishu-approval-tool`）

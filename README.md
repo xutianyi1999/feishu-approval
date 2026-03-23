@@ -2,7 +2,7 @@
 
 飞书 / Lark **审批 Open API v4**：CLI **`feishu-approval-tool`**、库 **`feishu_approval_tool`**；技能包含 **`SKILL.md`**、**`docs/AI.md`**、**`approval-code-map.md`**（说明）、**`approval-code-map.local.md.example`**、**`approval-code-map.local.md`**（本机映射，不入库）、**`embedded-docs/`**、**`docs/examples/`** 等。
 
-**AI / 自动化**：流程与 JSON 约定见 **`docs/AI.md`**（最小成功路径、**`util scaffold-widgets`** / **`extract-widgets`** / **`validate-widgets`** / **`doctor`**、**`instance create --widgets-json-file`** 与 **`--validate-against-json`**、飞书响应 **`code`≠0** 时 CLI **non-zero 退出** 及 stderr 中的 §7 类提示）。**`approval_code`** 仅中文名时：**`approval-code-map.local.md`**（优先）→ **`approval-code-map.md`**。安装、技能包目录与全局环境变量见 **`SKILL.md`**。
+**AI / 自动化**：流程与 JSON 约定见 **`docs/AI.md`**（最小成功路径、**`util scaffold-widgets`** / **`extract-widgets`** / **`validate-widgets`** / **`form-string`** / **`doctor`**、**`instance create --widgets-json-file`** 与 **`--validate-against-json`**、飞书响应 **`code`≠0** 时 CLI **non-zero 退出** 及 stderr 中的 §7 类提示）。**`approval_code`** 仅中文名时：**`approval-code-map.local.md`**（优先）→ **`approval-code-map.md`**。安装、技能包目录与全局环境变量见 **`SKILL.md`**。
 
 ### 安装 CLI
 

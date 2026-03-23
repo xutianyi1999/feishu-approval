@@ -1,12 +1,13 @@
 # embedded-docs 导航
 
-路径相对技能根目录（与 `SKILL.md` 同级）。**勿通读本页**：先 **`docs/AI.md`**，再按下表**只打开一行**。需要参数表、错误码、事件体字段时用 Read 打开对应文件；创建实例前可先 **`approval get`**，用 `form` / `node_list` 对照文档。
+路径相对技能根目录（与 `SKILL.md` 同级）。**勿通读本页**：先 **`docs/AI.md`**，再按下表**只打开一行**。需要参数表、错误码、事件体字段时用 Read 打开对应文件；拉审批定义、对照控件前可先 **`approval dump -c <code> --data-only`**（或 **`approval get`**），用 `form` / `node_list` 对照文档。
 
 ## 按场景
 
 | 场景 | 打开 |
 |------|------|
 | **助手 / AI**：流程与 JSON 约定 | `docs/AI.md` |
+| 仅审批中文名、未给 `approval_code` | `approval-code-map.local.md`（优先，若存在）或 `approval-code-map.md`；模板 `approval-code-map.local.md.example` |
 | 总览、方法列表（易有笔误，以子目录单页为准） | `reference/approval-v4/approval-overview.md` |
 | 实例 API（create/get/list/query/cc/cancel/specified_rollback 等为目录下同名 `.md`） | `reference/approval-v4/instance/` |
 | 任务 API（approve/reject/transfer/resubmit/search/query 等为目录下同名 `.md`） | `reference/approval-v4/task/` |
