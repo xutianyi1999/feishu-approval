@@ -1,19 +1,17 @@
 ---
 name: feishu-approval
-description: "AI-first feishu-approval-tool for OpenClaw/agents. Primary doc: docs/AI.md. Triggers: 飞书审批, Lark approval, approval_code, instance_code, 抄送, 加签, 订阅."
+description: "飞书审批 CLI 技能包。工作流与规则只读 docs/AI.md；本文件仅安装、环境、全局参数。触发：飞书审批、Lark approval、approval_code、instance_code、抄送、加签、订阅。"
 ---
 
-# 飞书审批技能（`feishu-approval-tool`）
+# 技能包：`feishu-approval-tool`
 
-由 **`docs/AI.md`**（流程、子命令、排错、映射）与 **`feishu-approval-tool --help`** 驱动；本文件只补 **安装、环境变量、技能包清单**。
+- **工作流、子命令摘要、JSON、映射、排错**：**`docs/AI.md`**（单一入口；阅读地图见其 **§1**）。
+- **HTTP 字段细节**：**`embedded-docs/INDEX.md`** 按需一行；与单页冲突以单页为准。
+- **子命令 flags**：**`feishu-approval-tool -h`** / **`<子命令> --help`**。
 
-## 技能包应含（与 `SKILL.md` 同级）
+## 目录（与 `SKILL.md` 同级）
 
-- **`SKILL.md`**、**`embedded-docs/`**、**`docs/`**（含 **`docs/AI.md`**、**`docs/examples/`**、**`docs/approval-code-map.local.template.md`**）
-- 本机 **`approval-code-map.local.md`**（**`.gitignore`**；路径与 **`util init`** → **`docs/AI.md` §8**）
-- 可选 **`AGENTS.md`**（仅改仓库代码时）
-
-目录名建议 `feishu-approval`。
+**`SKILL.md`**、**`embedded-docs/`**、**`docs/`**（含 **`docs/AI.md`**、**`docs/examples/`**、**`docs/approval-code-map.local.template.md`**）、本机 **`approval-code-map.local.md`**（**`.gitignore`**；**`docs/AI.md` §8**）。可选 **`AGENTS.md`**（仅改仓库代码时）。目录名建议 `feishu-approval`。
 
 ## 安装 CLI
 
@@ -21,7 +19,7 @@ description: "AI-first feishu-approval-tool for OpenClaw/agents. Primary doc: do
 cargo install --path crates/feishu-approval-tool
 ```
 
-（在仓库根执行；可选 **`--locked`**。）二进制一般在 **`~/.cargo/bin`**。工作目录建议含 **`.env`**；工具加载 `.env` 且不覆盖已有环境变量。
+在仓库根执行；可选 **`--locked`**。二进制一般在 **`~/.cargo/bin`**。工作目录建议含 **`.env`**；工具加载 `.env` 且不覆盖已有环境变量。
 
 ## 全局参数（可加在任意子命令前）
 
@@ -35,9 +33,3 @@ cargo install --path crates/feishu-approval-tool
 | `--raw` | JSON 不美化 |
 
 勿泄露 **`app_secret`**。
-
-## 在线文档（与 embedded 冲突时以单页为准）
-
-[审批概述](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/approval-v4/approval-overview)、[tenant_access_token](https://open.feishu.cn/document/ukTMukTMukTM/ukDNz4SO0MjL5QzM/auth-v3/auth/tenant_access_token_internal)、[事件订阅](https://open.feishu.cn/document/ukTMukTMukTM/uUTNz4SN1MjL1UzM)。
-
-HTTP 字段形状按需从 **`embedded-docs/INDEX.md`** 选**一行**（路由见 **`docs/AI.md` §1**）。

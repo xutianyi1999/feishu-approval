@@ -1,6 +1,7 @@
 use crate::cli::json_util::{
     apply_safe_widget_value_defaults, extract_widget_skeletons_value, form_string_from_widgets_json_path,
-    read_json_path_or_stdin, scaffold_root_widgets_from_approval_data, validate_widgets_json_value,
+    read_json_path_or_stdin, scaffold_root_widgets_from_approval_data, validate_widgets_against_approval_data,
+    validate_widgets_json_value,
 };
 use crate::cli::{Cli, UtilAction};
 use anyhow::{Context, Result};
@@ -14,18 +15,31 @@ pub fn dispatch(cli: &Cli, action: &UtilAction) -> Result<()> {
             let s = form_string_from_widgets_json_path(json_file)?;
             println!("{s}");
         }
-        UtilAction::ValidateWidgets { json_file, fix } => {
+        UtilAction::ValidateWidgets {
+            json_file,
+            fix,
+            validate_against_json,
+        } => {
             let mut v = read_json_path_or_stdin(json_file)?;
             if *fix {
                 apply_safe_widget_value_defaults(&mut v)?;
             }
             validate_widgets_json_value(&v)?;
+            if let Some(p) = validate_against_json {
+                let approval_root = read_json_path_or_stdin(p)?;
+                validate_widgets_against_approval_data(&v, &approval_root)?;
+            }
             if *fix {
                 let pretty = serde_json::to_string_pretty(&v)?;
                 println!("{pretty}");
             } else {
                 let n = v.as_array().map(|a| a.len()).unwrap_or(0);
-                println!("OK: {n} widget(s) (offline checks passed)");
+                let tail = if validate_against_json.is_some() {
+                    " + id/type vs definition"
+                } else {
+                    ""
+                };
+                println!("OK: {n} widget(s) (offline checks passed{tail})");
             }
         }
         UtilAction::Explain { msg } => {

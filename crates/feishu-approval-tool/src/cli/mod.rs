@@ -96,13 +96,16 @@ pub enum UtilAction {
         #[arg(long)]
         json_file: PathBuf,
     },
-    /// Offline: check widget JSON array (`id`/`type`/`value`; `fieldList` rows recurse); heuristics: `date` → RFC3339-like string; `amount`/`formula` → number or numeric string; file widgets → JSON array; `--fix` applies safe defaults then prints fixed JSON
+    /// Offline: check widget JSON array (`id`/`type`/`value`; `fieldList` rows recurse); heuristics: `date` → RFC3339-like string; `amount`/`formula` → number or numeric string; file widgets → JSON array; `--fix` applies safe defaults then prints fixed JSON. Optional `--validate-against-json` matches `instance create` (top-level widget `id`/`type` vs `approval dump --data-only`).
     ValidateWidgets {
         #[arg(long)]
         json_file: PathBuf,
         /// Set `null` `value` on file / fieldList / some text widgets to safe defaults, validate, print pretty JSON to stdout
         #[arg(long)]
         fix: bool,
+        /// Optional: `approval dump --data-only` JSON (or full GET response); same offline check as `instance create --validate-against-json`
+        #[arg(long)]
+        validate_against_json: Option<PathBuf>,
     },
     /// Offline: print guidance for a Feishu API `msg` substring (e.g. paste error text from `msg` field)
     Explain {
