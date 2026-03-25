@@ -1,9 +1,10 @@
 # AI 使用指南（单一入口）
 
-**定位**：CLI 与文档优先服务 **Agent 调用的工作流**；人类同样以本文件为入口。
+**定位**：CLI 与文档优先服务 **Agent 工作流**；人类同样以本文件为入口。
 
-- **不写两遍**：**安装 CLI、`.env`、技能包应含路径、全局参数表** → 根目录 **`SKILL.md`**（不必通读全文）。**子命令 flags** → **`feishu-approval-tool -h`** / **`<子命令> --help`**。
-- **审批中文名 ↔ `approval_code`**：只认 **§8** + 本机 **`approval-code-map.local.md`**；仓库无单独映射说明文件。
+**只维护一处**：安装、`.env`、技能包目录、**全局参数表** → 根目录 **`SKILL.md`**。子命令 **flags** → **`feishu-approval-tool -h`** / **`<子命令> --help`**。改本仓库 Rust → **`AGENTS.md`**。
+
+- **`approval_code`**：只认 **§8** + 本机 **`approval-code-map.local.md`**；仓库无单独映射说明文件。
 
 ## 硬规则（4 条）
 
@@ -20,42 +21,7 @@
 4. 编辑 **`widgets.json`** → **`util validate-widgets`**（与 **`instance create`** 提交前检查**同源**；附件数组、`fieldList` 内层、`date` RFC3339 等见 **§7**）。可选 **`--validate-against-json approval-data.json`**（只核对顶层 **id/type**）。
 5. **`instance create --widgets-json-file widgets.json ...`**（或 **`util form-string`** → **`--form-file`**）。首次可 **`--dry-run`**（只打印 body、不调 API）。**`code` ≠ 0** 时看 stderr（含 **`[feishu-approval-tool]`**）与 **§7**；可 **`util explain --msg "…"`**。
 
-### 0.1 标准管道（减少临时拼命令）
-
-占位符换成本租户 **`approval_code`**、**`open_id`** 等。
-
-**A. 定义 → 骨架 → 校验 → 预览 body → 创建**
-
-```bash
-feishu-approval-tool approval dump -c "<APPROVAL_CODE>" --data-only -o approval-data.json
-feishu-approval-tool util extract-widgets --json-file approval-data.json > skeleton.json
-# 在 skeleton 基础上编辑并保存为 widgets.json（或先用 scaffold-widgets 再改）
-feishu-approval-tool util validate-widgets --json-file widgets.json
-feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
-  --widgets-json-file widgets.json --open-id "<OPEN_ID>" \
-  --validate-against-json approval-data.json --dry-run
-feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
-  --widgets-json-file widgets.json --open-id "<OPEN_ID>" \
-  --validate-against-json approval-data.json
-```
-
-**B. stdin 读 widgets**
-
-```bash
-feishu-approval-tool util validate-widgets --json-file - < widgets.json
-feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
-  --widgets-json-file - --open-id "<OPEN_ID>" --dry-run < widgets.json
-```
-
-（**`-`** = stdin 读 JSON 数组。）
-
-**C. 先 `form` 字符串再创建**
-
-```bash
-feishu-approval-tool util form-string --json-file widgets.json > form.txt
-feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
-  --form-file form.txt --open-id "<OPEN_ID>" --dry-run
-```
+**多行命令、`extra.json`、stdin `-`、批量 task**：见 **§3–§4**（勿与下面重复背命令）。
 
 ## 1. 阅读顺序
 
@@ -116,7 +82,9 @@ feishu-approval-tool instance create --approval-code "<APPROVAL_CODE>" \
 - **`util extract-widgets`**：接受 **`form`** 为字符串或数组。
 - **`--validate-against-json approval-data.json`**：只核对 **`widgets`** 顶层 **id/type** 与定义树一致；**不**保证 **value** 业务合法（见 **§7**）。
 
-## 4. `instance create` 模板
+## 4. `instance create` 与相关
+
+### 4.1 命令模板
 
 ```bash
 # A：控件数组文件（推荐）
@@ -141,11 +109,24 @@ feishu-approval-tool instance create --approval-code YOUR_CODE --wizard --open-i
 feishu-approval-tool instance create --approval-code YOUR_CODE --template expense --open-id ou_xxx
 ```
 
-自选审批人：**`docs/examples/instance-create-extra.sample.json`**。
+**从定义到创建（管道）**：`approval dump --data-only` → `util extract-widgets` / `scaffold-widgets` → 编辑 **`widgets.json`** → **`util validate-widgets`** → **`instance create`**（可先 **`--dry-run`**）。**stdin 读 widgets**：**`--json-file -`** 与 **§3** 的 **`-`** 约定。
 
-### `node_approver_*_list` / `node_cc_*_list`（易错）
+### 4.2 `extra.json`（`node_approver_*` / `node_cc_*`）
 
-元素须为 **`{ "key": "<node_id>", "value": ["open_id", ...] }`**（**`key`** = **`node_list`** 里的节点 id；**`value`** = 审批人 id 数组）。**勿**写成内层 **`node_id`** / **`approver_open_id_list`** 等误名。真例：**`embedded-docs/reference/approval-v4/instance/create.md`** 请求体示例；CLI 会对常见误写做检查。
+从 **`approval dump`** 取 **`node_list[].node_id`**。外层键须为 **`node_approver_open_id_list`**、**`node_approver_user_id_list`** 或 **`node_cc_*_list`** 等**完整参数名**，**勿**把节点 ID 拼进参数名。值为 **`{ "key": "<node_id>", "value": ["ou_..."] }`** 的数组。
+
+```json
+{
+  "node_approver_open_id_list": [
+    {
+      "key": "0cfd07f250e0d105fa5ed9c12fb5a625",
+      "value": ["ou_d303844764a301beb7d2828cacb15fec"]
+    }
+  ]
+}
+```
+
+完整可复制示例：**`docs/examples/instance-create-extra.sample.json`**（内层结构校验与 CLI 的 **`validate_instance_create_extra_patch`** 同源）。
 
 ### `task reject` 批量
 
@@ -185,7 +166,7 @@ CLI 会把 **`--pending-only` / `--task-status` / `--search-user-id`** 浅合并
 | 现象 | 下一步 |
 |------|--------|
 | token / `.env` | **`util doctor`** |
-| **`extra.json` 自选审批人无效** | 元素是否 **`key`+`value`**（§4）；对照 **`instance/create.md`** 示例 |
+| **`extra.json` 自选审批人无效** | **§4.2**；对照 **`embedded-docs/.../instance/create.md`** |
 | 参数像 JSON 却报找不到文件 | 真实路径、**`-`**、**`--extra-json-inline`**、**`api post --json`** |
 | JSON 解析失败 | BOM、尾逗号、stdin 是否空；**`util validate-widgets`** |
 | id/type 与定义不符 | **`util extract-widgets`**；创建时 **`--validate-against-json`** |
@@ -212,3 +193,9 @@ CLI 会把 **`--pending-only` / `--task-status` / `--search-user-id`** 浅合并
 ## 9. 改本仓库代码时
 
 见根目录 **`AGENTS.md`**。
+
+## 10. 开放平台链接（与 embedded 冲突时以单页为准）
+
+- [审批概述](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/approval-v4/approval-overview)
+- [tenant_access_token](https://open.feishu.cn/document/ukTMukTMukTM/ukDNz4SO0MjL5QzM/auth-v3/auth/tenant_access_token_internal)
+- [事件订阅](https://open.feishu.cn/document/ukTMukTMukTM/uUTNz4SN1MjL1UzM)
