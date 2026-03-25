@@ -1,13 +1,12 @@
 # embedded-docs 导航
 
-路径相对技能根目录（与 `SKILL.md` 同级）。**勿通读本页**：何时打开本索引见 **`docs/AI.md` §1**；按下表**只打开一行**。需要参数表、错误码、事件体字段时用 Read 打开对应文件。
+路径相对技能根（与 **`SKILL.md` 同级）。**勿通读本页**：按场景**只打开一行**；何时查本索引见 **`docs/AI.md` §1**。
 
 ## 按场景
 
 | 场景 | 打开 |
 |------|------|
-| **助手 / AI**：流程与 JSON 约定；飞书 **`msg` 排错** | `docs/AI.md`；**`feishu-approval-tool util explain --msg "…"`**（离线） |
-| 仅审批中文名、未给 `approval_code` | Read `approval-code-map.local.md`；**若无文件 → 必须向用户索要 code → 用户提供后 `util init`（若需）并写入/追加映射行**；`docs/AI.md` **§8**；模板 **`docs/approval-code-map.local.template.md`** |
+| 流程、子命令、JSON、`approval_code` 映射、排错 | **`docs/AI.md`**（飞书 **`msg`** 可再配合 **`util explain --msg`**） |
 | 总览、方法列表（易有笔误，以子目录单页为准） | `reference/approval-v4/approval-overview.md` |
 | 实例 API（create/get/list/query/cc/cancel/specified_rollback 等为目录下同名 `.md`） | `reference/approval-v4/instance/` |
 | 任务 API（approve/reject/transfer/resubmit/search/query 等为目录下同名 `.md`） | `reference/approval-v4/task/` |

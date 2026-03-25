@@ -124,7 +124,7 @@ pub enum UtilAction {
     Doctor,
     /// Write `approval-code-map.local.md` from `docs/approval-code-map.local.template.md` if it does not exist (offline)
     Init {
-        /// Directory to place the file (default: current directory)
+        /// Directory to place the file (default: current directory). For agents: use the skill / OpenClaw workspace root so the path matches docs/AI.md section 8 (`{root}/approval-code-map.local.md`).
         #[arg(long, default_value = ".")]
         output_dir: PathBuf,
     },
